@@ -10,21 +10,56 @@
 </style>
 </head>
 <body>
-<div class="loading" id="loading"><div class="box"><div class="ico">🗺️</div><div class="title">Carico la mappa gare…</div><div class="sub">Sul NAS uso direttamente la copia locale; online uso GitHub.</div><div class="fallback" id="fallback"><p class="sub">GitHub non è raggiungibile in questo momento.</p><a href="https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/">Apri la versione di backup</a></div></div></div>
+<div class="loading" id="loading"><div class="box"><div class="ico">🗺️</div><div class="title">Carico la mappa gare…</div><div class="sub">Sul NAS uso direttamente la copia locale; online uso GitHub.</div><div class="fallback" id="fallback"><p class="sub">La mappa non è raggiungibile in questo momento.</p></div></div></div>
 <script>
 (async()=>{
-  if(location.port==='8082'){
-    location.replace('/app.html');
-    return;
-  }
-  const source='https://raw.githubusercontent.com/Zenchak/race-map-bog/main/app.html?ts='+Date.now();
+  const isNas=location.port==='8082' || location.port==='8442';
+  const appSource=isNas?'/app.html':'https://raw.githubusercontent.com/Zenchak/race-map-bog/main/app.html?ts='+Date.now();
   try{
-    const r=await fetch(source,{cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const html=await r.text();
+    const [appResp,extraResp]=await Promise.all([
+      fetch(appSource,{cache:'no-store'}),
+      fetch(isNas?'/extra-races.js':'https://raw.githubusercontent.com/Zenchak/race-map-bog/main/extra-races.js?ts='+Date.now(),{cache:'no-store'})
+    ]);
+    if(!appResp.ok)throw new Error('App HTTP '+appResp.status);
+    let html=await appResp.text();
+    let extra='window.EXTRA_RACES=[];';
+    if(extraResp.ok)extra=await extraResp.text();
+    const injection=`<script>${extra}<\/script><script>
+(function(){
+  const races=window.EXTRA_RACES||[];
+  if(!races.length)return;
+  function add(){
+    const frame=document.getElementById('raceFrame');
+    if(!frame)return;
+    try{
+      const doc=frame.contentDocument;
+      if(!doc||!doc.body||doc.getElementById('bogdan-extra-races'))return;
+      const st=doc.createElement('style');
+      st.textContent='.bogdan-extra-races{margin:14px 16px;padding:14px;border:1px solid #dce4ec;border-radius:16px;background:#f8fbff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}.bogdan-extra-races h2{margin:0 0 10px;font-size:17px;color:#102234}.bogdan-extra-card{padding:12px;border-radius:13px;background:white;border:1px solid #e2e8ef;margin-top:9px}.bogdan-extra-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.bogdan-extra-name{font-size:15px;font-weight:850;color:#16283a}.bogdan-extra-badge{font-size:10px;font-weight:800;background:#eaf5ff;color:#1769aa;padding:5px 8px;border-radius:999px;white-space:nowrap}.bogdan-extra-meta{font-size:12px;color:#607184;margin-top:5px}.bogdan-extra-note{font-size:12px;line-height:1.45;color:#405468;margin-top:8px}.bogdan-extra-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.bogdan-extra-actions a{display:inline-block;text-decoration:none;padding:8px 10px;border-radius:10px;font-size:11px;font-weight:800;background:#0d2f4d;color:#fff}.bogdan-extra-actions a.secondary{background:#eef4f8;color:#24445f}@media(max-width:600px){.bogdan-extra-races{margin:10px}.bogdan-extra-head{display:block}.bogdan-extra-badge{display:inline-block;margin-top:6px}}';
+      doc.head.appendChild(st);
+      const sec=doc.createElement('section');sec.id='bogdan-extra-races';sec.className='bogdan-extra-races';
+      sec.innerHTML='<h2>⭐ Gare candidate aggiunte</h2>';
+      races.forEach(r=>{
+        const c=doc.createElement('div');c.className='bogdan-extra-card';
+        const d=new Date(r.date+'T12:00:00');const data=d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+        c.innerHTML='<div class="bogdan-extra-head"><div><div class="bogdan-extra-name"></div><div class="bogdan-extra-meta"></div></div><span class="bogdan-extra-badge"></span></div><div class="bogdan-extra-note"></div><div class="bogdan-extra-actions"><a class="official" target="_blank" rel="noopener">Sito ufficiale</a><a class="secondary map" target="_blank" rel="noopener">Mappa partenza</a></div>';
+        c.querySelector('.bogdan-extra-name').textContent=r.name;
+        c.querySelector('.bogdan-extra-meta').textContent=data+' · '+r.distance+' · '+r.location;
+        c.querySelector('.bogdan-extra-badge').textContent=r.status||'Candidata';
+        c.querySelector('.bogdan-extra-note').textContent=r.note||'';
+        c.querySelector('.official').href=r.url;c.querySelector('.map').href=r.mapUrl||r.url;
+        sec.appendChild(c);
+      });
+      const host=doc.querySelector('main')||doc.body;host.insertBefore(sec,host.firstChild);
+    }catch(e){console.warn('Gare extra non iniettabili',e)}
+  }
+  const wait=()=>{const f=document.getElementById('raceFrame');if(!f)return setTimeout(wait,100);f.addEventListener('load',()=>setTimeout(add,250));setTimeout(add,600)};wait();
+})();
+<\/script>`;
+    html=html.replace('</body>',injection+'</body>');
     document.open();document.write(html);document.close();
   }catch(err){
-    console.warn('Impossibile caricare app.html da GitHub',err);
+    console.warn('Impossibile caricare la mappa',err);
     document.getElementById('fallback').style.display='block';
   }
 })();
