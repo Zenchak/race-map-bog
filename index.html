@@ -3,23 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#07111f">
 <title>Calendario Gare</title>
 <style>
-:root{--bar:#0d1c2d;--line:#25435f;--text:#f4f8fc;--accent:#67e8f9;--muted:#a8bdcf}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#fff}
-.nav{height:58px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#112b45,#081626);border-bottom:1px solid var(--line);color:var(--text);box-shadow:0 5px 18px rgba(0,0,0,.2);position:relative;z-index:2}
-.brand{min-width:0}.title{font-size:14px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:10px;color:var(--muted);margin-top:2px}
-.switch{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:#06111d;background:linear-gradient(135deg,var(--accent),#8fb7ff);border-radius:11px;padding:10px 12px;font-size:12px;font-weight:850;box-shadow:0 5px 16px rgba(103,232,249,.2)}
-iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#fff}
-@media(max-width:480px){.nav{height:54px;padding:7px 9px}.sub{display:none}.switch{padding:9px 11px}iframe{height:calc(100% - 54px)}}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#07111f;color:#f4f8fc}.loading{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center}.box{max-width:520px}.ico{font-size:42px}.title{font-size:22px;font-weight:800;margin:10px 0 6px}.sub{font-size:13px;color:#91a9bf;line-height:1.5}.fallback{display:none;margin-top:16px}.fallback a{display:inline-block;text-decoration:none;background:#67e8f9;color:#06111d;padding:10px 13px;border-radius:12px;font-weight:800}
 </style>
 </head>
 <body>
-  <div class="nav">
-    <div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub">Navigazione rapida tra gare e allenamenti</div></div>
-    <a class="switch" href="https://training-dashboard-bog.netlify.app/">📊 Allenamenti</a>
-  </div>
-  <iframe src="https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/" title="Mappa delle gare"></iframe>
+<div class="loading" id="loading"><div class="box"><div class="ico">🗺️</div><div class="title">Carico la mappa gare…</div><div class="sub">La versione più recente viene letta direttamente da GitHub.</div><div class="fallback" id="fallback"><p class="sub">GitHub non è raggiungibile in questo momento.</p><a href="https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/">Apri la versione di backup</a></div></div></div>
+<script>
+(async()=>{
+  const source='https://raw.githubusercontent.com/Zenchak/race-map-bog/main/app.html?ts='+Date.now();
+  try{
+    const r=await fetch(source,{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const html=await r.text();
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(err){
+    console.warn('Impossibile caricare app.html da GitHub',err);
+    document.getElementById('fallback').style.display='block';
+  }
+})();
+</script>
 </body>
 </html>
