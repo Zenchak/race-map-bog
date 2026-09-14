@@ -42,6 +42,27 @@ iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#ff
     return null;
   }
 
+  const MONTHS={
+    gennaio:0,gen:0,febbraio:1,feb:1,marzo:2,mar:2,aprile:3,apr:3,maggio:4,mag:4,giugno:5,giu:5,
+    luglio:6,lug:6,agosto:7,ago:7,settembre:8,set:8,ottobre:9,ott:9,novembre:10,nov:10,dicembre:11,dic:11
+  };
+  function datesInText(text){
+    const out=[];const s=normalize(text).toLowerCase();let m;
+    const iso=/\b(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/g;
+    while((m=iso.exec(s))) out.push(new Date(+m[1],+m[2]-1,+m[3]));
+    const ita=/\b(0?[1-9]|[12]\d|3[01])[\/.\-](0?[1-9]|1[0-2])[\/.\-](20\d{2})\b/g;
+    while((m=ita.exec(s))) out.push(new Date(+m[3],+m[2]-1,+m[1]));
+    const names=/\b(0?[1-9]|[12]\d|3[01])\s+(gen(?:naio)?|feb(?:braio)?|mar(?:zo)?|apr(?:ile)?|mag(?:gio)?|giu(?:gno)?|lug(?:lio)?|ago(?:sto)?|set(?:tembre)?|ott(?:obre)?|nov(?:embre)?|dic(?:embre)?)\s+(20\d{2})\b/g;
+    while((m=names.exec(s))){const month=MONTHS[m[2]];if(month!==undefined)out.push(new Date(+m[3],month,+m[1]));}
+    return out.filter(d=>!Number.isNaN(d.getTime()));
+  }
+  function isPastRaceText(text){
+    const dates=datesInText(text);if(!dates.length)return false;
+    const today=new Date();today.setHours(0,0,0,0);
+    const latest=Math.max(...dates.map(d=>{d.setHours(0,0,0,0);return d.getTime()}));
+    return latest<today.getTime();
+  }
+
   function addRatingStyles(doc){
     if(doc.getElementById('bogdan-feasibility-style'))return;
     const st=doc.createElement('style');st.id='bogdan-feasibility-style';st.textContent=`
@@ -50,6 +71,7 @@ iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#ff
       .bogdan-feasibility-score{margin-left:auto;font-size:11px;color:#5f6f80;font-weight:800}
       .bogdan-feasibility-detail{font-size:11px;color:#536474;margin-top:4px}
       .bogdan-feasibility-note{font-size:9px;color:#8593a2;margin-top:5px}
+      .bogdan-past-race{display:none!important}
       @media(max-width:600px){.bogdan-feasibility{padding:8px}.bogdan-feasibility-detail{font-size:10px}.bogdan-feasibility-score{margin-left:0}}
     `;doc.head.appendChild(st)
   }
@@ -66,7 +88,7 @@ iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#ff
     head.append(status,score);box.append(head,detail,note);host.appendChild(box)
   }
 
-  function decorateRaces(){
+  function processRaces(){
     try{
       const doc=frame.contentDocument;if(!doc||!doc.body)return;
       addRatingStyles(doc);
@@ -78,28 +100,40 @@ iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#ff
         seen.add(host);
         const text=normalize(host.innerText||host.textContent);
         if(text.length<8||text.length>3000)continue;
-        const ev=evaluationFor(text);if(ev)addRatingStyles(doc),decorateHost(doc,host,ev);
+        if(isPastRaceText(text)){
+          host.classList.add('bogdan-past-race');
+          continue;
+        }
+        host.classList.remove('bogdan-past-race');
+        const ev=evaluationFor(text);if(ev)decorateHost(doc,host,ev);
       }
-    }catch(err){console.warn('Valutazioni gare non applicabili',err)}
+      for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){
+        const text=normalize(el.innerText||el.textContent);
+        if(isPastRaceText(text)){
+          const popup=el.closest('.leaflet-popup')||el;
+          popup.style.display='none';
+        }
+      }
+    }catch(err){console.warn('Filtro/valutazioni gare non applicabili',err)}
   }
 
-  function activateRatings(){
-    decorateRaces();
+  function activateEnhancements(){
+    processRaces();
     try{
       const doc=frame.contentDocument;if(!doc||!doc.body)return;
-      const obs=new MutationObserver(()=>{clearTimeout(window.__raceRatingTimer);window.__raceRatingTimer=setTimeout(decorateRaces,120)});
+      const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(processRaces,120)});
       obs.observe(doc.body,{childList:true,subtree:true});
     }catch(e){}
   }
 
-  frame.addEventListener('load',()=>setTimeout(activateRatings,150));
+  frame.addEventListener('load',()=>setTimeout(activateEnhancements,150));
   fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{
     if(!r.ok)throw new Error('HTTP '+r.status);
     frame.src=local;
-    label.textContent='Copia locale sul NAS · valutazione personale attiva';
+    label.textContent='Copia locale sul NAS · gare passate nascoste · valutazione personale attiva';
   }).catch(()=>{
     frame.src=backup;
-    label.textContent='Backup Netlify · valutazione non disponibile';
+    label.textContent='Backup Netlify · filtro avanzato non disponibile';
   });
 })();
 </script>
