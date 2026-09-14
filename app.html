@@ -9,132 +9,38 @@
 :root{--bar:#0d1c2d;--line:#25435f;--text:#f4f8fc;--accent:#67e8f9;--muted:#a8bdcf}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#fff}
 .nav{height:58px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#112b45,#081626);border-bottom:1px solid var(--line);color:var(--text);box-shadow:0 5px 18px rgba(0,0,0,.2);position:relative;z-index:2}
-.brand{min-width:0}.title{font-size:14px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:10px;color:var(--muted);margin-top:2px}
-.switch{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:#06111d;background:linear-gradient(135deg,var(--accent),#8fb7ff);border-radius:11px;padding:10px 12px;font-size:12px;font-weight:850;box-shadow:0 5px 16px rgba(103,232,249,.2)}
-iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#fff}
-@media(max-width:480px){.nav{height:54px;padding:7px 9px}.sub{display:none}.switch{padding:9px 11px}iframe{height:calc(100% - 54px)}}
+.brand{min-width:0}.title{font-size:14px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:10px;color:var(--muted);margin-top:2px}.switch{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:#06111d;background:linear-gradient(135deg,var(--accent),#8fb7ff);border-radius:11px;padding:10px 12px;font-size:12px;font-weight:850;box-shadow:0 5px 16px rgba(103,232,249,.2)}iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#fff}@media(max-width:480px){.nav{height:54px;padding:7px 9px}.sub{display:none}.switch{padding:9px 11px}iframe{height:calc(100% - 54px)}}
 </style>
 </head>
 <body>
-  <div class="nav">
-    <div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub" id="sourceLabel">Carico la copia locale…</div></div>
-    <a class="switch" id="trainingLink" href="https://training-dashboard-bog.netlify.app/">📊 Allenamenti</a>
-  </div>
-  <iframe id="raceFrame" title="Mappa delle gare"></iframe>
+<div class="nav"><div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub" id="sourceLabel">Carico la copia locale…</div></div><a class="switch" id="trainingLink" href="https://training-dashboard-bog.netlify.app/">📊 Allenamenti</a></div>
+<iframe id="raceFrame" title="Mappa delle gare"></iframe>
 <script src="/feasibility.js"></script>
 <script>
 (()=>{
-  const local='/legacy/index.html';
-  const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
-  const frame=document.getElementById('raceFrame');
-  const label=document.getElementById('sourceLabel');
-  if(location.port==='8082') document.getElementById('trainingLink').href=`${location.protocol}//${location.hostname}:8081/`;
-
-  function normalize(s){return String(s||'').replace(/\s+/g,' ').trim()}
-  function evaluationFor(text){
-    const cfg=window.RACE_FEASIBILITY||{};
-    const clean=normalize(text);
-    for(const x of (cfg.overrides||[])){
-      const hit=x.match instanceof RegExp ? x.match.test(clean) : clean.toLowerCase().includes(String(x.match||'').toLowerCase());
-      if(hit)return x;
-    }
-    for(const r of (cfg.rules||[])) if(r.test&&r.test.test(clean)) return r;
-    return null;
-  }
-
-  const MONTHS={
-    gennaio:0,gen:0,febbraio:1,feb:1,marzo:2,mar:2,aprile:3,apr:3,maggio:4,mag:4,giugno:5,giu:5,
-    luglio:6,lug:6,agosto:7,ago:7,settembre:8,set:8,ottobre:9,ott:9,novembre:10,nov:10,dicembre:11,dic:11
-  };
-  function datesInText(text){
-    const out=[];const s=normalize(text).toLowerCase();let m;
-    const iso=/\b(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/g;
-    while((m=iso.exec(s))) out.push(new Date(+m[1],+m[2]-1,+m[3]));
-    const ita=/\b(0?[1-9]|[12]\d|3[01])[\/.\-](0?[1-9]|1[0-2])[\/.\-](20\d{2})\b/g;
-    while((m=ita.exec(s))) out.push(new Date(+m[3],+m[2]-1,+m[1]));
-    const names=/\b(0?[1-9]|[12]\d|3[01])\s+(gen(?:naio)?|feb(?:braio)?|mar(?:zo)?|apr(?:ile)?|mag(?:gio)?|giu(?:gno)?|lug(?:lio)?|ago(?:sto)?|set(?:tembre)?|ott(?:obre)?|nov(?:embre)?|dic(?:embre)?)\s+(20\d{2})\b/g;
-    while((m=names.exec(s))){const month=MONTHS[m[2]];if(month!==undefined)out.push(new Date(+m[3],month,+m[1]));}
-    return out.filter(d=>!Number.isNaN(d.getTime()));
-  }
-  function isPastRaceText(text){
-    const dates=datesInText(text);if(!dates.length)return false;
-    const today=new Date();today.setHours(0,0,0,0);
-    const latest=Math.max(...dates.map(d=>{d.setHours(0,0,0,0);return d.getTime()}));
-    return latest<today.getTime();
-  }
-
-  function addRatingStyles(doc){
-    if(doc.getElementById('bogdan-feasibility-style'))return;
-    const st=doc.createElement('style');st.id='bogdan-feasibility-style';st.textContent=`
-      .bogdan-feasibility{margin:9px 0 4px;padding:9px 10px;border-radius:12px;background:#f6f8fb;border:1px solid #dce4ec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}
-      .bogdan-feasibility-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;font-weight:800;color:#172536}
-      .bogdan-feasibility-score{margin-left:auto;font-size:11px;color:#5f6f80;font-weight:800}
-      .bogdan-feasibility-detail{font-size:11px;color:#536474;margin-top:4px}
-      .bogdan-feasibility-note{font-size:9px;color:#8593a2;margin-top:5px}
-      .bogdan-past-race{display:none!important}
-      @media(max-width:600px){.bogdan-feasibility{padding:8px}.bogdan-feasibility-detail{font-size:10px}.bogdan-feasibility-score{margin-left:0}}
-    `;doc.head.appendChild(st)
-  }
-
-  function decorateHost(doc,host,e){
-    if(!host||host.classList.contains('bogdan-rated-host')||host.closest('.bogdan-rated-host'))return;
-    host.classList.add('bogdan-rated-host');
-    const box=doc.createElement('div');box.className='bogdan-feasibility';
-    const head=doc.createElement('div');head.className='bogdan-feasibility-head';
-    const status=doc.createElement('span');status.textContent=`${e.badge||'⚪'} ${e.level||'Da valutare'}`;
-    const score=doc.createElement('span');score.className='bogdan-feasibility-score';score.textContent=`Fattibilità per te: ${e.score??'—'}/100`;
-    const detail=doc.createElement('div');detail.className='bogdan-feasibility-detail';detail.textContent=e.detail||'';
-    const note=doc.createElement('div');note.className='bogdan-feasibility-note';note.textContent='Valutazione ChatGPT basata sulla preparazione e sugli allenamenti registrati.';
-    head.append(status,score);box.append(head,detail,note);host.appendChild(box)
-  }
-
-  function processRaces(){
-    try{
-      const doc=frame.contentDocument;if(!doc||!doc.body)return;
-      addRatingStyles(doc);
-      const titleEls=[...doc.querySelectorAll('h2,h3,h4,strong,[class*="title"],a')];
-      const seen=new Set();
-      for(const t of titleEls){
-        const host=t.closest('article,li,tr,.card,[class*="card"],[class*="race"],[class*="event"]')||t.parentElement;
-        if(!host||seen.has(host))continue;
-        seen.add(host);
-        const text=normalize(host.innerText||host.textContent);
-        if(text.length<8||text.length>3000)continue;
-        if(isPastRaceText(text)){
-          host.classList.add('bogdan-past-race');
-          continue;
-        }
-        host.classList.remove('bogdan-past-race');
-        const ev=evaluationFor(text);if(ev)decorateHost(doc,host,ev);
-      }
-      for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){
-        const text=normalize(el.innerText||el.textContent);
-        if(isPastRaceText(text)){
-          const popup=el.closest('.leaflet-popup')||el;
-          popup.style.display='none';
-        }
-      }
-    }catch(err){console.warn('Filtro/valutazioni gare non applicabili',err)}
-  }
-
-  function activateEnhancements(){
-    processRaces();
-    try{
-      const doc=frame.contentDocument;if(!doc||!doc.body)return;
-      const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(processRaces,120)});
-      obs.observe(doc.body,{childList:true,subtree:true});
-    }catch(e){}
-  }
-
-  frame.addEventListener('load',()=>setTimeout(activateEnhancements,150));
-  fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    frame.src=local;
-    label.textContent='Copia locale sul NAS · gare passate nascoste · valutazione personale attiva';
-  }).catch(()=>{
-    frame.src=backup;
-    label.textContent='Backup Netlify · filtro avanzato non disponibile';
-  });
+const local='/legacy/index.html';
+const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
+const frame=document.getElementById('raceFrame');
+const label=document.getElementById('sourceLabel');
+if(location.port==='8082')document.getElementById('trainingLink').href=`${location.protocol}//${location.hostname}:8081/`;
+const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
+function evaluationFor(text){const cfg=window.RACE_FEASIBILITY||{},clean=norm(text);for(const x of(cfg.overrides||[])){const hit=x.match instanceof RegExp?x.match.test(clean):clean.toLowerCase().includes(String(x.match||'').toLowerCase());if(hit)return x}for(const r of(cfg.rules||[]))if(r.test&&r.test.test(clean))return r;return null}
+const MONTHS={gennaio:0,gen:0,febbraio:1,feb:1,marzo:2,mar:2,aprile:3,apr:3,maggio:4,mag:4,giugno:5,giu:5,luglio:6,lug:6,agosto:7,ago:7,settembre:8,set:8,ottobre:9,ott:9,novembre:10,nov:10,dicembre:11,dic:11};
+function datesInText(text){const out=[],s=norm(text).toLowerCase();let m;const iso=/\b(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/g;while((m=iso.exec(s)))out.push(new Date(+m[1],+m[2]-1,+m[3]));const ita=/\b(0?[1-9]|[12]\d|3[01])[\/.\-](0?[1-9]|1[0-2])[\/.\-](20\d{2})\b/g;while((m=ita.exec(s)))out.push(new Date(+m[3],+m[2]-1,+m[1]));const names=/\b(0?[1-9]|[12]\d|3[01])\s+(gen(?:naio)?|feb(?:braio)?|mar(?:zo)?|apr(?:ile)?|mag(?:gio)?|giu(?:gno)?|lug(?:lio)?|ago(?:sto)?|set(?:tembre)?|ott(?:obre)?|nov(?:embre)?|dic(?:embre)?)\s+(20\d{2})\b/g;while((m=names.exec(s))){const mo=MONTHS[m[2]];if(mo!==undefined)out.push(new Date(+m[3],mo,+m[1]))}return out.filter(d=>!Number.isNaN(d.getTime()))}
+function isPast(text){const ds=datesInText(text);if(!ds.length)return false;const today=new Date();today.setHours(0,0,0,0);return Math.max(...ds.map(d=>{d.setHours(0,0,0,0);return d.getTime()}))<today.getTime()}
+function addStyles(doc){if(doc.getElementById('bogdan-feasibility-style'))return;const st=doc.createElement('style');st.id='bogdan-feasibility-style';st.textContent=`.bogdan-feasibility{margin:9px 0 4px;padding:9px 10px;border-radius:12px;background:#f6f8fb;border:1px solid #dce4ec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}.bogdan-feasibility-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;font-weight:800;color:#172536}.bogdan-feasibility-score{margin-left:auto;font-size:11px;color:#5f6f80;font-weight:800}.bogdan-feasibility-detail{font-size:11px;color:#536474;margin-top:4px}.bogdan-feasibility-note{font-size:9px;color:#8593a2;margin-top:5px}.bogdan-past-race{display:none!important}@media(max-width:600px){.bogdan-feasibility{padding:8px}.bogdan-feasibility-detail{font-size:10px}.bogdan-feasibility-score{margin-left:0}}`;doc.head.appendChild(st)}
+function raceHost(el){let h=el.closest('article,li,tr,.card,[class*="card"],[class*="item"],[class*="entry"]');if(h)return h;let p=el;for(let i=0;i<6&&p;i++,p=p.parentElement){const tx=norm(p.innerText||p.textContent);if(datesInText(tx).length&&tx.length>20&&tx.length<2500)return p}return el.parentElement}
+function decorate(doc,host,e){if(!host||host.classList.contains('bogdan-rated-host')||host.closest('.bogdan-rated-host'))return;host.classList.add('bogdan-rated-host');const box=doc.createElement('div');box.className='bogdan-feasibility';box.innerHTML=`<div class="bogdan-feasibility-head"><span>${e.badge||'⚪'} ${e.level||'Da valutare'}</span><span class="bogdan-feasibility-score">Fattibilità per te: ${e.score??'—'}/100</span></div><div class="bogdan-feasibility-detail"></div><div class="bogdan-feasibility-note">Valutazione ChatGPT basata sulla preparazione e sugli allenamenti registrati.</div>`;box.querySelector('.bogdan-feasibility-detail').textContent=e.detail||'';host.appendChild(box)}
+function process(){try{const doc=frame.contentDocument;if(!doc||!doc.body)return;addStyles(doc);
+// Prima nascondi le schede che contengono una data passata. Questo passaggio parte dagli elementi-data,
+// così funziona anche quando titolo e data sono in sotto-elementi diversi della stessa scheda.
+for(const el of doc.querySelectorAll('time,span,p,div,td')){const tx=norm(el.innerText||el.textContent);if(tx.length>180||!datesInText(tx).length||!isPast(tx))continue;const h=raceHost(el);if(h){const full=norm(h.innerText||h.textContent);if(isPast(full))h.classList.add('bogdan-past-race')}}
+// Poi aggiungi la valutazione solo alle gare rimaste visibili.
+const seen=new Set();for(const t of doc.querySelectorAll('h2,h3,h4,strong,[class*="title"],a')){const h=raceHost(t);if(!h||seen.has(h))continue;seen.add(h);const text=norm(h.innerText||h.textContent);if(text.length<8||text.length>3000)continue;if(isPast(text)){h.classList.add('bogdan-past-race');continue}h.classList.remove('bogdan-past-race');const ev=evaluationFor(text);if(ev)decorate(doc,h,ev)}
+for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){const text=norm(el.innerText||el.textContent);if(isPast(text)){const p=el.closest('.leaflet-popup')||el;p.style.display='none'}}
+}catch(e){console.warn('Filtro/valutazioni gare non applicabili',e)}}
+function activate(){process();try{const doc=frame.contentDocument;if(!doc||!doc.body)return;const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(process,120)});obs.observe(doc.body,{childList:true,subtree:true})}catch(e){}}
+frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · gare passate nascoste · valutazione personale attiva'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
 })();
 </script>
 </body>
