@@ -3,6 +3,14 @@ window.RACE_FEASIBILITY={
   context:"Valutazione personalizzata per Bogdan, basata sullo storico allenamenti disponibile. Tiene conto soprattutto di distanza massima coperta, continuità nelle tre discipline e carico specifico; non sostituisce una valutazione medica o un test di gara.",
   rules:[
     {
+      id:"duathlon-sprint",
+      test:/\bduathlon\b.*\bsprint\b|\bsprint\b.*\bduathlon\b/i,
+      badge:"🟢",
+      level:"Fattibilità alta",
+      score:88,
+      detail:"La bici è ampiamente coperta e le distanze di corsa sono compatibili con ciò che hai già fatto. Da gestire bene il carico sulla gamba destra e la seconda frazione di corsa."
+    },
+    {
       id:"super-sprint",
       test:/\b(super\s*sprint|supersprint)\b/i,
       badge:"🟢",
@@ -41,14 +49,6 @@ window.RACE_FEASIBILITY={
       level:"Non consigliata al momento",
       score:24,
       detail:"È coerente come obiettivo futuro, ma oggi manca ancora endurance specifica soprattutto per maratona dopo 180 km di bici, oltre a volume nuoto e brick di lunga durata."
-    },
-    {
-      id:"duathlon-sprint",
-      test:/\bduathlon\b.*\bsprint\b|\bsprint\b.*\bduathlon\b/i,
-      badge:"🟢",
-      level:"Fattibilità alta",
-      score:88,
-      detail:"La bici è ampiamente coperta e le distanze di corsa sono compatibili con ciò che hai già fatto. Da gestire bene il carico sulla gamba destra e la seconda frazione di corsa."
     },
     {
       id:"duathlon",
