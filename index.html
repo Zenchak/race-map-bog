@@ -10,17 +10,19 @@
 </style>
 </head>
 <body>
-<div class="loading" id="loading"><div class="box"><div class="ico">🗺️</div><div class="title">Carico la mappa gare…</div><div class="sub">La versione più recente viene letta direttamente da GitHub.</div><div class="fallback" id="fallback"><p class="sub">GitHub non è raggiungibile in questo momento.</p><a href="https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/">Apri la versione di backup</a></div></div></div>
+<div class="loading" id="loading"><div class="box"><div class="ico">🗺️</div><div class="title">Carico la mappa gare…</div><div class="sub">Sul NAS uso direttamente la copia locale; online uso GitHub.</div><div class="fallback" id="fallback"><p class="sub">GitHub non è raggiungibile in questo momento.</p><a href="https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/">Apri la versione di backup</a></div></div></div>
 <script>
 (async()=>{
+  if(location.port==='8082'){
+    location.replace('/app.html');
+    return;
+  }
   const source='https://raw.githubusercontent.com/Zenchak/race-map-bog/main/app.html?ts='+Date.now();
   try{
     const r=await fetch(source,{cache:'no-store'});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const html=await r.text();
-    document.open();
-    document.write(html);
-    document.close();
+    document.open();document.write(html);document.close();
   }catch(err){
     console.warn('Impossibile caricare app.html da GitHub',err);
     document.getElementById('fallback').style.display='block';
