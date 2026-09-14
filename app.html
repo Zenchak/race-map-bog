@@ -21,22 +21,86 @@ iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#ff
     <a class="switch" id="trainingLink" href="https://training-dashboard-bog.netlify.app/">📊 Allenamenti</a>
   </div>
   <iframe id="raceFrame" title="Mappa delle gare"></iframe>
+<script src="/feasibility.js"></script>
 <script>
-(async()=>{
+(()=>{
   const local='/legacy/index.html';
   const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
   const frame=document.getElementById('raceFrame');
   const label=document.getElementById('sourceLabel');
   if(location.port==='8082') document.getElementById('trainingLink').href=`${location.protocol}//${location.hostname}:8081/`;
-  try{
-    const r=await fetch(local,{method:'HEAD',cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    frame.src=local;
-    label.textContent='Copia locale sul NAS';
-  }catch(e){
-    frame.src=backup;
-    label.textContent='Backup Netlify';
+
+  function normalize(s){return String(s||'').replace(/\s+/g,' ').trim()}
+  function evaluationFor(text){
+    const cfg=window.RACE_FEASIBILITY||{};
+    const clean=normalize(text);
+    for(const x of (cfg.overrides||[])){
+      const hit=x.match instanceof RegExp ? x.match.test(clean) : clean.toLowerCase().includes(String(x.match||'').toLowerCase());
+      if(hit)return x;
+    }
+    for(const r of (cfg.rules||[])) if(r.test&&r.test.test(clean)) return r;
+    return null;
   }
+
+  function addRatingStyles(doc){
+    if(doc.getElementById('bogdan-feasibility-style'))return;
+    const st=doc.createElement('style');st.id='bogdan-feasibility-style';st.textContent=`
+      .bogdan-feasibility{margin:9px 0 4px;padding:9px 10px;border-radius:12px;background:#f6f8fb;border:1px solid #dce4ec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}
+      .bogdan-feasibility-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;font-weight:800;color:#172536}
+      .bogdan-feasibility-score{margin-left:auto;font-size:11px;color:#5f6f80;font-weight:800}
+      .bogdan-feasibility-detail{font-size:11px;color:#536474;margin-top:4px}
+      .bogdan-feasibility-note{font-size:9px;color:#8593a2;margin-top:5px}
+      @media(max-width:600px){.bogdan-feasibility{padding:8px}.bogdan-feasibility-detail{font-size:10px}.bogdan-feasibility-score{margin-left:0}}
+    `;doc.head.appendChild(st)
+  }
+
+  function decorateHost(doc,host,e){
+    if(!host||host.classList.contains('bogdan-rated-host')||host.closest('.bogdan-rated-host'))return;
+    host.classList.add('bogdan-rated-host');
+    const box=doc.createElement('div');box.className='bogdan-feasibility';
+    const head=doc.createElement('div');head.className='bogdan-feasibility-head';
+    const status=doc.createElement('span');status.textContent=`${e.badge||'⚪'} ${e.level||'Da valutare'}`;
+    const score=doc.createElement('span');score.className='bogdan-feasibility-score';score.textContent=`Fattibilità per te: ${e.score??'—'}/100`;
+    const detail=doc.createElement('div');detail.className='bogdan-feasibility-detail';detail.textContent=e.detail||'';
+    const note=doc.createElement('div');note.className='bogdan-feasibility-note';note.textContent='Valutazione ChatGPT basata sulla preparazione e sugli allenamenti registrati.';
+    head.append(status,score);box.append(head,detail,note);host.appendChild(box)
+  }
+
+  function decorateRaces(){
+    try{
+      const doc=frame.contentDocument;if(!doc||!doc.body)return;
+      addRatingStyles(doc);
+      const titleEls=[...doc.querySelectorAll('h2,h3,h4,strong,[class*="title"],a')];
+      const seen=new Set();
+      for(const t of titleEls){
+        const host=t.closest('article,li,tr,.card,[class*="card"],[class*="race"],[class*="event"]')||t.parentElement;
+        if(!host||seen.has(host))continue;
+        seen.add(host);
+        const text=normalize(host.innerText||host.textContent);
+        if(text.length<8||text.length>3000)continue;
+        const ev=evaluationFor(text);if(ev)addRatingStyles(doc),decorateHost(doc,host,ev);
+      }
+    }catch(err){console.warn('Valutazioni gare non applicabili',err)}
+  }
+
+  function activateRatings(){
+    decorateRaces();
+    try{
+      const doc=frame.contentDocument;if(!doc||!doc.body)return;
+      const obs=new MutationObserver(()=>{clearTimeout(window.__raceRatingTimer);window.__raceRatingTimer=setTimeout(decorateRaces,120)});
+      obs.observe(doc.body,{childList:true,subtree:true});
+    }catch(e){}
+  }
+
+  frame.addEventListener('load',()=>setTimeout(activateRatings,150));
+  fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    frame.src=local;
+    label.textContent='Copia locale sul NAS · valutazione personale attiva';
+  }).catch(()=>{
+    frame.src=backup;
+    label.textContent='Backup Netlify · valutazione non disponibile';
+  });
 })();
 </script>
 </body>
