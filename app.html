@@ -9,11 +9,11 @@
 :root{--bar:#0d1c2d;--line:#25435f;--text:#f4f8fc;--accent:#67e8f9;--muted:#a8bdcf}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#fff}
 .nav{height:58px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#112b45,#081626);border-bottom:1px solid var(--line);color:var(--text);box-shadow:0 5px 18px rgba(0,0,0,.2);position:relative;z-index:2}
-.brand{min-width:0}.title{font-size:14px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:10px;color:var(--muted);margin-top:2px}.switch{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:#06111d;background:linear-gradient(135deg,var(--accent),#8fb7ff);border-radius:11px;padding:10px 12px;font-size:12px;font-weight:850;box-shadow:0 5px 16px rgba(103,232,249,.2)}iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#fff}@media(max-width:480px){.nav{height:54px;padding:7px 9px}.sub{display:none}.switch{padding:9px 11px}iframe{height:calc(100% - 54px)}}
+.brand{min-width:0}.title{font-size:14px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:10px;color:var(--muted);margin-top:2px}iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#fff}@media(max-width:480px){.nav{height:54px;padding:7px 9px}.sub{display:none}iframe{height:calc(100% - 54px)}}
 </style>
 </head>
 <body>
-<div class="nav"><div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub" id="sourceLabel">Carico la copia locale…</div></div><a class="switch" id="trainingLink" href="https://training-dashboard-bog.netlify.app/">📊 Allenamenti</a></div>
+<div class="nav"><div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub" id="sourceLabel">Carico la copia locale…</div></div></div>
 <iframe id="raceFrame" title="Mappa delle gare"></iframe>
 <script src="/feasibility.js"></script>
 <script>
@@ -22,7 +22,6 @@ const local='/legacy/index.html';
 const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
 const frame=document.getElementById('raceFrame');
 const label=document.getElementById('sourceLabel');
-if(location.port==='8082')document.getElementById('trainingLink').href=`${location.protocol}//${location.hostname}:8081/`;
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 function evaluationFor(text){const cfg=window.RACE_FEASIBILITY||{},clean=norm(text);for(const x of(cfg.overrides||[])){const hit=x.match instanceof RegExp?x.match.test(clean):clean.toLowerCase().includes(String(x.match||'').toLowerCase());if(hit)return x}for(const r of(cfg.rules||[]))if(r.test&&r.test.test(clean))return r;return null}
 const MONTHS={gennaio:0,gen:0,febbraio:1,feb:1,marzo:2,mar:2,aprile:3,apr:3,maggio:4,mag:4,giugno:5,giu:5,luglio:6,lug:6,agosto:7,ago:7,settembre:8,set:8,ottobre:9,ott:9,novembre:10,nov:10,dicembre:11,dic:11};
