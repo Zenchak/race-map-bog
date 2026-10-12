@@ -183,22 +183,28 @@ function sportFieldFor(legacy){
 }
 
 function ensureTypeFilters(doc){
-  if(doc.getElementById('bogdan-race-type-filters')){updateRaceFilterUI(doc);return}
+  const existing=doc.getElementById('bogdan-race-type-filters');
+  if(existing){updateRaceFilterUI(doc);return}
   addRaceFilterStyles(doc);
 
   const legacy=findSportSelect(doc);
-  let anchor=null;
+  const filterHost=filterHostFor(doc,legacy);
+
   if(legacy){
-    legacy.style.display='none';
+    const field=sportFieldFor(legacy);
+    if(field && field!==filterHost) field.style.display='none';
+    else legacy.style.display='none';
+
     legacy.setAttribute('aria-hidden','true');
     if(legacy.id){
-      const lab=doc.querySelector('label[for="'+legacy.id.replace(/"/g,'\\"')+'"]');
-      if(lab)lab.style.display='none';
+      const lab=doc.querySelector('label[for="'+legacy.id.replace(/"/g,'\\\"')+'"]');
+      if(lab && lab!==filterHost) lab.style.display='none';
     }
-    if(legacy.parentElement&&legacy.parentElement.tagName==='LABEL'&&legacy.parentElement.querySelectorAll('select').length===1){
-      legacy.parentElement.style.display='none';
-      anchor=legacy.parentElement;
-    }else anchor=legacy;
+
+    try{
+      const display=doc.defaultView.getComputedStyle(filterHost).display;
+      if(display.includes('flex')) filterHost.style.flexWrap='wrap';
+    }catch{}
   }
 
   const panel=doc.createElement('section');
@@ -209,20 +215,40 @@ function ensureTypeFilters(doc){
   const main=panel.querySelector('.bogdan-race-main');
   const other=panel.querySelector('.bogdan-race-other');
   const makeChip=(x,parent)=>{
-    const b=doc.createElement('button');b.type='button';b.className='bogdan-race-chip';b.dataset.raceFilter=x.key;b.textContent=x.label;b.setAttribute('aria-pressed','false');
-    b.addEventListener('click',()=>{activeRaceTypes.has(x.key)?activeRaceTypes.delete(x.key):activeRaceTypes.add(x.key);applyRaceFilters(doc)});
+    const b=doc.createElement('button');
+    b.type='button';
+    b.className='bogdan-race-chip';
+    b.dataset.raceFilter=x.key;
+    b.textContent=x.label;
+    b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',()=>{
+      activeRaceTypes.has(x.key)?activeRaceTypes.delete(x.key):activeRaceTypes.add(x.key);
+      applyRaceFilters(doc);
+    });
     parent.appendChild(b);
   };
+
   PRIMARY_RACE_FILTERS.forEach(x=>makeChip(x,main));
-  const more=doc.createElement('button');more.type='button';more.className='bogdan-race-chip bogdan-race-more';more.textContent='Altri ▾';more.setAttribute('aria-expanded','false');
-  more.addEventListener('click',()=>{const open=!other.classList.contains('is-open');other.classList.toggle('is-open',open);more.setAttribute('aria-expanded',open?'true':'false');more.textContent=open?'Altri ▴':'Altri ▾'});
+
+  const more=doc.createElement('button');
+  more.type='button';
+  more.className='bogdan-race-chip bogdan-race-more';
+  more.textContent='Altri ▾';
+  more.setAttribute('aria-expanded','false');
+  more.addEventListener('click',()=>{
+    const open=!other.classList.contains('is-open');
+    other.classList.toggle('is-open',open);
+    more.setAttribute('aria-expanded',open?'true':'false');
+    more.textContent=open?'Altri ▴':'Altri ▾';
+  });
   main.appendChild(more);
+
   OTHER_RACE_FILTERS.forEach(x=>makeChip(x,other));
 
+  // Put the format filters in the same visible filter area as search/year/month.
   filterHost.appendChild(panel);
   applyRaceFilters(doc);
 }
-
 
 function raceTitleFor(host){
   const el=host.querySelector('h2,h3,h4,[class*="title"],strong');
