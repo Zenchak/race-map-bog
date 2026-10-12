@@ -1,0 +1,31 @@
+name: NAS deploy and verify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: race-map-nas-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy race HUB to Synology
+    runs-on: [self-hosted, linux, x64, synology]
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout deployment scripts
+        uses: actions/checkout@v4
+
+      - name: Deploy and verify on NAS
+        shell: bash
+        run: bash scripts/nas-deploy.sh "${{ github.sha }}"
+
+      - name: Show NAS deployment status
+        if: always()
+        shell: bash
+        run: |
+          echo "### NAS deploy status"
+          cat /volume1/docker/bogdan-sites/deploy-status-race-map.json || true
