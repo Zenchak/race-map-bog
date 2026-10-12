@@ -64,17 +64,23 @@ const activeRaceTypes=new Set();
 
 function raceTypesFor(text){
   const s=norm(text).toLowerCase(),out=new Set();
-  const halfMar=/(?:mezza\s+maratona|half\s+marathon|\b21(?:[.,]1)?\s*km\b)/i.test(s);
-  const marathon=!halfMar&&/(?:\bmaratona\b|\bmarathon\b|\b42(?:[.,]2)?\s*km\b)/i.test(s);
+  const isTri=/(?:\btriathlon\b|\bironman\b|70[.,]3|\bolimpic[oa]\b|\bolympic\b|\bsprint\b|middle\s*distance|triathlon\s+medio|medio\s+triathlon)/i.test(s);
+
   if(/\b(?:super\s*)?sprint\b/i.test(s))out.add('sprint');
   if(/\b(?:olimpic[oa]|olympic)\b/i.test(s))out.add('olimpico');
   if(/(?:70[.,]3|half\s*ironman|ironman\s*70|middle\s*distance|triathlon\s+medio|medio\s+triathlon)/i.test(s))out.add('70.3');
-  if(/(?:ironman\s*full|full\s*ironman|full[-\s]*distance|140[.,]6|3[.,]8\s*(?:km)?\s*[\/·-]\s*180\s*(?:km)?\s*[\/·-]\s*42(?:[.,]2)?)/i.test(s))out.add('full');
-  if(halfMar)out.add('mezza');
-  if(marathon)out.add('maratona');
+  if(/(?:ironman\s*full|full\s*ironman|full[-\s]*distance|140[.,]6|3[.,]8\s*(?:km)?\s*[\/·-]\s*180\s*(?:km)?\s*[\/·-]\s*42(?:[.,]\d+)?)/i.test(s))out.add('full');
+
+  if(!isTri){
+    const halfMar=/(?:mezza\s+maratona|half\s+marathon|\b21(?:[.,]\d+)?\s*km\b)/i.test(s);
+    const noHalf=s.replace(/mezza\s+maratona/gi,'').replace(/half\s+marathon/gi,'');
+    const marathon=/(?:\bmaratona\b|\bmarathon\b|\b42(?:[.,]\d+)?\s*km\b)/i.test(noHalf);
+    if(halfMar)out.add('mezza');
+    if(marathon)out.add('maratona');
+  }
 
   if(/(?:\btrail\b|ultra\s*trail|skyrace|sky\s*race|vertical\s*(?:km|race)?)/i.test(s))out.add('trail');
-  if(/(?:\b10\s*km\b|\b10k\b)/i.test(s))out.add('10k');
+  if(!isTri && /(?:\b10(?:[.,]\d+)?\s*km\b|\b10k\b)/i.test(s))out.add('10k');
   if(/\bduathlon\b/i.test(s))out.add('duathlon');
   if(/(?:\bciclismo\b|\bcycling\b|\bgranfondo\b|\bgran\s*fondo\b|\bcriterium\b|\bciclotur)/i.test(s))out.add('ciclismo');
   if(/(?:\bnuoto\b|\bswim(?:ming)?\b|open\s*water)/i.test(s))out.add('nuoto');
@@ -222,6 +228,45 @@ function matchesActiveRaceTypes(text){
   return [...activeRaceTypes].some(k=>types.has(k));
 }
 
+function baseFilterState(doc){
+  const selects=[...doc.querySelectorAll('select')];
+  let year=null,month=null;
+
+  for(const sel of selects){
+    const meta=norm([sel.id,sel.name,sel.getAttribute('aria-label'),sel.getAttribute('title'),sel.previousElementSibling?.textContent].filter(Boolean).join(' ')).toLowerCase();
+    const val=String(sel.value||'').trim();
+    const label=norm(sel.options?.[sel.selectedIndex]?.textContent||val).toLowerCase();
+    const opts=norm(Array.from(sel.options||[]).map(o=>o.textContent).join(' ')).toLowerCase();
+
+    if(year===null && (/\banno\b/.test(meta) || /\b2026\b/.test(opts)) && /^20\d{2}$/.test(val||label)) year=Number(val||label);
+
+    if(month===null && (/\bmese\b/.test(meta) || /gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre/.test(opts))){
+      if(/^\d{1,2}$/.test(val)){
+        const n=Number(val);
+        month=(n>=1&&n<=12)?n-1:null;
+      }else if(label && !/tutti|all/.test(label)){
+        const k=Object.keys(MONTHS).find(x=>label.startsWith(x));
+        if(k)month=MONTHS[k];
+      }
+    }
+  }
+
+  const search=[...doc.querySelectorAll('input')].find(i=>{
+    const meta=norm([i.id,i.name,i.placeholder,i.getAttribute('aria-label'),i.getAttribute('title')].filter(Boolean).join(' ')).toLowerCase();
+    return /cerca|search|gara|localit/.test(meta);
+  });
+  return {q:norm(search?.value||'').toLowerCase(),year,month};
+}
+
+function matchesBaseFilters(text,state){
+  const tx=norm(text),low=tx.toLowerCase();
+  if(state.q && !low.includes(state.q))return false;
+  const ds=datesInText(tx);
+  if(state.year!==null && (!ds.length || !ds.some(d=>d.getFullYear()===state.year)))return false;
+  if(state.month!==null && (!ds.length || !ds.some(d=>d.getMonth()===state.month)))return false;
+  return true;
+}
+
 function updateVisibleCount(doc,visible){
   for(const el of doc.querySelectorAll('div,span,p')){
     const tx=norm(el.textContent);
@@ -300,7 +345,7 @@ function collectLeafletMarkers(win){
   return entries;
 }
 
-function applyLeafletFilters(doc){
+function applyLeafletFilters(doc,state){
   const win=doc.defaultView;
   if(!win)return;
   const entries=collectLeafletMarkers(win);
@@ -308,7 +353,7 @@ function applyLeafletFilters(doc){
 
   for(const e of entries){
     if(!e.text)e.text=leafletText(e.layer);
-    const show=!activeRaceTypes.size || (e.text && matchesActiveRaceTypes(e.text));
+    const show=!!e.text && matchesBaseFilters(e.text,state) && matchesActiveRaceTypes(e.text);
 
     if(show&&!e.visible){
       try{e.parent.addLayer(e.layer);e.visible=true}catch{}
@@ -321,16 +366,17 @@ function applyLeafletFilters(doc){
 function applyRaceFilters(doc){
   let visible=0;
   const cards=raceCandidates(doc);
+  const state=baseFilterState(doc);
 
   for(const h of cards){
     const tx=norm(h.innerText||h.textContent);
-    const show=matchesActiveRaceTypes(tx);
+    const show=matchesBaseFilters(tx,state) && matchesActiveRaceTypes(tx);
     h.classList.toggle('bogdan-type-hidden',!show);
     if(show&&!h.classList.contains('bogdan-past-race'))visible++;
   }
 
   updateVisibleCount(doc,visible);
-  applyLeafletFilters(doc);
+  applyLeafletFilters(doc,state);
   updateRaceFilterUI(doc);
 }
 function filterHostFor(doc,legacy){
@@ -414,6 +460,14 @@ function ensureTypeFilters(doc){
   main.appendChild(more);
 
   OTHER_RACE_FILTERS.forEach(x=>makeChip(x,other));
+
+  // Mantieni sincronizzati anche ricerca/anno/mese del contenuto legacy.
+  for(const el of filterHost.querySelectorAll('input,select')){
+    if(el.closest('#bogdan-race-type-filters')||el.dataset.bogdanFilterHooked==='1')continue;
+    el.dataset.bogdanFilterHooked='1';
+    const ev=el.tagName==='INPUT'?'input':'change';
+    el.addEventListener(ev,()=>setTimeout(()=>applyRaceFilters(doc),100));
+  }
 
   // Put the format filters in the same visible filter area as search/year/month.
   filterHost.appendChild(panel);
