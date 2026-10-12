@@ -57,8 +57,7 @@ const OTHER_RACE_FILTERS=[
   {key:'duathlon',label:'Duathlon'},
   {key:'ciclismo',label:'Ciclismo'},
   {key:'nuoto',label:'Nuoto'},
-  {key:'aquathlon',label:'Aquathlon'},
-  {key:'altro',label:'Altro'}
+  {key:'aquathlon',label:'Aquathlon'}
 ];
 const activeRaceTypes=new Set();
 
@@ -214,6 +213,7 @@ function ensureTypeFilters(doc){
 
   const main=panel.querySelector('.bogdan-race-main');
   const other=panel.querySelector('.bogdan-race-other');
+  other.classList.remove('is-open');
   const makeChip=(x,parent)=>{
     const b=doc.createElement('button');
     b.type='button';
