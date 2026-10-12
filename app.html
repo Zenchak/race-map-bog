@@ -21,6 +21,7 @@ const local='/legacy/index.html';
 const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
 const frame=document.getElementById('raceFrame');
 const label=document.getElementById('sourceLabel');
+const HUB_BUILD='2026.10.12-2350';
 let extraRaces=window.EXTRA_RACES||[];
 
 function loadExtraRaces(){
@@ -64,6 +65,7 @@ function ensureExtraRaces(doc){
   for(const r of extraRaces){
     const c=doc.createElement('div');
     c.className='bogdan-extra-card';
+    c.dataset.raceId=r.id||'';
     c.dataset.raceDate=r.date||'';
     c.dataset.raceMeta=[r.name,r.distance,r.discipline,r.location,r.status].filter(Boolean).join(' ');
     const d=r.date?new Date(r.date+'T12:00:00'):null;
@@ -334,6 +336,76 @@ function matchesBaseFilters(text,state){
   return true;
 }
 
+function structuredRaceTypes(r){
+  const all=norm([r?.name,r?.distance,r?.discipline].filter(Boolean).join(' ')).toLowerCase();
+  const nd=norm([r?.name,r?.distance].filter(Boolean).join(' ')).toLowerCase();
+  const out=new Set();
+  const isTri=/(?:\btriathlon\b|\bironman\b|70[.,]3|\bolimpic[oa]\b|\bolympic\b|\bsprint\b|\bmedio\b|middle\s*distance|\bfull\b)/i.test(all);
+
+  if(isTri){
+    if(/\b(?:super\s*)?sprint\b/i.test(all))out.add('sprint');
+    if(/\b(?:olimpic[oa]|olympic)\b/i.test(all))out.add('olimpico');
+    if(/(?:70[.,]3|half\s*ironman|ironman\s*70|middle\s*distance|\bmedio\b)/i.test(all))out.add('70.3');
+    if(/(?:ironman\s*full|full\s*ironman|full[-\s]*distance|\bfull\b|140[.,]6)/i.test(all))out.add('full');
+  }else{
+    const half=/(?:mezza\s+maratona|half\s+marathon|\b21(?:[.,]\d+)?\s*km\b)/i.test(nd);
+    const clean=nd.replace(/mezza\s+maratona/gi,'').replace(/half\s+marathon/gi,'');
+    const marathon=/(?:\bmaratona\b|\bmarathon\b|\b42(?:[.,]\d+)?\s*km\b)/i.test(clean);
+    if(half)out.add('mezza');
+    if(marathon)out.add('maratona');
+  }
+
+  if(/(?:\btrail\b|ultra\s*trail|skyrace|sky\s*race|vertical\s*(?:km|race)?)/i.test(all))out.add('trail');
+  if(!isTri && /(?:\b10(?:[.,]\d+)?\s*km\b|\b10k\b)/i.test(nd))out.add('10k');
+  if(/\bduathlon\b/i.test(all))out.add('duathlon');
+  if(/(?:\bciclismo\b|\bcycling\b|\bgranfondo\b|\bgran\s*fondo\b|\bcriterium\b|\bciclotur)/i.test(all))out.add('ciclismo');
+  if(/(?:\bnuoto\b|\bswim(?:ming)?\b|open\s*water)/i.test(all))out.add('nuoto');
+  if(/\baquathlon\b/i.test(all))out.add('aquathlon');
+  if(!out.size)out.add('altro');
+  return out;
+}
+
+function structuredRaceMatches(r,state){
+  const date=String(r?.date||'');
+  const d=/^\d{4}-\d{2}-\d{2}$/.test(date)?new Date(date+'T12:00:00'):null;
+  if(d&&!Number.isNaN(d.getTime())){
+    const today=new Date();today.setHours(0,0,0,0);
+    const rd=new Date(d);rd.setHours(0,0,0,0);
+    if(rd<today)return false;
+    if(state.year!==null&&rd.getFullYear()!==state.year)return false;
+    if(state.month!==null&&rd.getMonth()!==state.month)return false;
+  }else if(state.year!==null||state.month!==null){
+    return false;
+  }
+
+  const hay=norm([r?.name,r?.location,r?.distance,r?.discipline,r?.status,r?.note].filter(Boolean).join(' ')).toLowerCase();
+  if(state.q&&!hay.includes(state.q))return false;
+
+  if(activeRaceTypes.size){
+    const types=structuredRaceTypes(r);
+    if(![...activeRaceTypes].some(k=>types.has(k)))return false;
+  }
+  return true;
+}
+
+function applyStructuredRaceFilters(doc,state){
+  const cards=[...doc.querySelectorAll('.bogdan-extra-card')];
+  if(!cards.length||!extraRaces.length)return null;
+
+  const byId=new Map(extraRaces.map(r=>[String(r.id||''),r]));
+  let visible=0;
+  for(const card of cards){
+    const r=byId.get(String(card.dataset.raceId||''));
+    const show=!!r&&structuredRaceMatches(r,state);
+    card.classList.toggle('bogdan-type-hidden',!show);
+    if(show)visible++;
+  }
+
+  const title=doc.querySelector('#bogdan-extra-races .bogdan-extra-title');
+  if(title)title.textContent='Gare HUB · '+visible+' visibili';
+  return visible;
+}
+
 function updateVisibleCount(doc,visible){
   for(const el of doc.querySelectorAll('div,span,p')){
     const tx=norm(el.textContent);
@@ -420,7 +492,11 @@ function applyLeafletFilters(doc,state){
 
   for(const e of entries){
     if(!e.text)e.text=leafletText(e.layer);
-    const show=!!e.text && matchesBaseFilters(e.text,state) && matchesActiveRaceTypes(e.text);
+    const hasDate=!!datesInText(e.text||'').length;
+    const baseOk=!hasDate || matchesBaseFilters(e.text,state);
+    const types=raceTypesFor(e.text||'');
+    const typeOk=!activeRaceTypes.size || !e.text || (types.size===1&&types.has('altro')) || matchesActiveRaceTypes(e.text);
+    const show=baseOk&&typeOk;
 
     if(show&&!e.visible){
       try{e.parent.addLayer(e.layer);e.visible=true}catch{}
@@ -431,18 +507,26 @@ function applyLeafletFilters(doc,state){
 }
 
 function applyRaceFilters(doc){
-  let visible=0;
-  const cards=raceCandidates(doc);
   const state=baseFilterState(doc);
 
-  for(const h of cards){
-    const tx=norm((h.innerText||h.textContent)+' '+(h.dataset.raceMeta||''));
-    const show=matchesBaseFilters(tx,state) && matchesActiveRaceTypes(tx);
-    h.classList.toggle('bogdan-type-hidden',!show);
-    if(show&&!h.classList.contains('bogdan-past-race'))visible++;
+  // HUB: usa direttamente i dati strutturati di extra-races.js.
+  // Non dipendere dal testo/DOM del vecchio sito per il conteggio e la lista.
+  const structuredVisible=applyStructuredRaceFilters(doc,state);
+
+  if(structuredVisible===null){
+    let visible=0;
+    const cards=raceCandidates(doc);
+    for(const h of cards){
+      const tx=norm((h.innerText||h.textContent)+' '+(h.dataset.raceMeta||''));
+      const show=matchesBaseFilters(tx,state) && matchesActiveRaceTypes(tx);
+      h.classList.toggle('bogdan-type-hidden',!show);
+      if(show&&!h.classList.contains('bogdan-past-race'))visible++;
+    }
+    updateVisibleCount(doc,visible);
+  }else{
+    updateVisibleCount(doc,structuredVisible);
   }
 
-  updateVisibleCount(doc,visible);
   applyLeafletFilters(doc,state);
   updateRaceFilterUI(doc);
 }
@@ -601,7 +685,7 @@ function process(){try{
 }catch(e){console.warn('Filtri gare non applicabili',e)}}
 function activate(){process();try{const doc=frame.contentDocument;if(!doc||!doc.body)return;const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(process,120)});obs.observe(doc.body,{childList:true,subtree:true})}catch(e){}}
 loadExtraRaces().then(()=>{try{process()}catch{}});
-frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · gare passate nascoste · filtri multipli attivi'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
+frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · HUB build '+HUB_BUILD+' · filtri verificati'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
 })();
 </script>
 </body>
