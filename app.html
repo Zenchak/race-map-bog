@@ -15,7 +15,6 @@
 <body>
 <div class="nav"><div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub" id="sourceLabel">Carico la copia locale…</div></div></div>
 <iframe id="raceFrame" title="Mappa delle gare"></iframe>
-<script src="/feasibility.js"></script>
 <script>
 (()=>{
 const local='/legacy/index.html';
@@ -23,11 +22,26 @@ const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netli
 const frame=document.getElementById('raceFrame');
 const label=document.getElementById('sourceLabel');
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
-function evaluationFor(text){const cfg=window.RACE_FEASIBILITY||{},clean=norm(text);for(const x of(cfg.overrides||[])){const hit=x.match instanceof RegExp?x.match.test(clean):clean.toLowerCase().includes(String(x.match||'').toLowerCase());if(hit)return x}for(const r of(cfg.rules||[]))if(r.test&&r.test.test(clean))return r;return null}
 const MONTHS={gennaio:0,gen:0,febbraio:1,feb:1,marzo:2,mar:2,aprile:3,apr:3,maggio:4,mag:4,giugno:5,giu:5,luglio:6,lug:6,agosto:7,ago:7,settembre:8,set:8,ottobre:9,ott:9,novembre:10,nov:10,dicembre:11,dic:11};
 function datesInText(text){const out=[],s=norm(text).toLowerCase();let m;const iso=/\b(20\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/g;while((m=iso.exec(s)))out.push(new Date(+m[1],+m[2]-1,+m[3]));const ita=/\b(0?[1-9]|[12]\d|3[01])[\/.\-](0?[1-9]|1[0-2])[\/.\-](20\d{2})\b/g;while((m=ita.exec(s)))out.push(new Date(+m[3],+m[2]-1,+m[1]));const names=/\b(0?[1-9]|[12]\d|3[01])\s+(gen(?:naio)?|feb(?:braio)?|mar(?:zo)?|apr(?:ile)?|mag(?:gio)?|giu(?:gno)?|lug(?:lio)?|ago(?:sto)?|set(?:tembre)?|ott(?:obre)?|nov(?:embre)?|dic(?:embre)?)\s+(20\d{2})\b/g;while((m=names.exec(s))){const mo=MONTHS[m[2]];if(mo!==undefined)out.push(new Date(+m[3],mo,+m[1]))}return out.filter(d=>!Number.isNaN(d.getTime()))}
 function isPast(text){const ds=datesInText(text);if(!ds.length)return false;const today=new Date();today.setHours(0,0,0,0);return Math.max(...ds.map(d=>{d.setHours(0,0,0,0);return d.getTime()}))<today.getTime()}
-function addStyles(doc){if(doc.getElementById('bogdan-feasibility-style'))return;const st=doc.createElement('style');st.id='bogdan-feasibility-style';st.textContent=`.bogdan-feasibility{margin:9px 0 4px;padding:9px 10px;border-radius:12px;background:#f6f8fb;border:1px solid #dce4ec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}.bogdan-feasibility-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;font-weight:800;color:#172536}.bogdan-feasibility-score{margin-left:auto;font-size:11px;color:#5f6f80;font-weight:800}.bogdan-feasibility-detail{font-size:11px;color:#536474;margin-top:4px}.bogdan-feasibility-note{font-size:9px;color:#8593a2;margin-top:5px}.bogdan-past-race{display:none!important}@media(max-width:600px){.bogdan-feasibility{padding:8px}.bogdan-feasibility-detail{font-size:10px}.bogdan-feasibility-score{margin-left:0}}.leaflet-control-layers,.leaflet-control.legend,.map-legend,.legend,[class*="map-legend"],[class*="mapLegend"]{display:none!important}`;doc.head.appendChild(st)}
+function addStyles(doc){
+  if(doc.getElementById('bogdan-app-style'))return;
+  const st=doc.createElement('style');
+  st.id='bogdan-app-style';
+  st.textContent=`
+    .bogdan-past-race{display:none!important}
+    .leaflet-control-layers,.leaflet-control.legend,.map-legend,.legend,[class*="map-legend"],[class*="mapLegend"]{display:none!important}
+    .bogdan-detail-link{
+      display:inline-flex;align-items:center;justify-content:center;gap:5px;
+      margin-top:10px;padding:8px 11px;border-radius:10px;
+      background:#eef5fb;border:1px solid #cfdeea;color:#174d78!important;
+      text-decoration:none!important;font:800 11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif
+    }
+    .bogdan-detail-link:hover{background:#e4f0f8}
+  `;
+  doc.head.appendChild(st);
+}
 function raceHost(el){let h=el.closest('article,li,tr,.card,[class*="card"],[class*="item"],[class*="entry"]');if(h)return h;let p=el;for(let i=0;i<6&&p;i++,p=p.parentElement){const tx=norm(p.innerText||p.textContent);if(datesInText(tx).length&&tx.length>20&&tx.length<2500)return p}return el.parentElement}
 
 const PRIMARY_RACE_FILTERS=[
@@ -84,7 +98,38 @@ function addRaceFilterStyles(doc){
   if(doc.getElementById('bogdan-race-filter-style'))return;
   const st=doc.createElement('style');
   st.id='bogdan-race-filter-style';
-  st.textContent='.bogdan-race-filter{margin:8px 10px 10px;padding:9px 10px;border:1px solid #dce5ed;border-radius:12px;background:linear-gradient(180deg,#fbfdff,#f5f9fc);box-shadow:0 4px 12px rgba(20,50,75,.05);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;max-width:100%;grid-column:1/-1}.bogdan-race-filter-title{font-size:11px;font-weight:850;color:#41566a;margin:0 0 6px}.bogdan-race-filter-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.bogdan-race-chip{appearance:none;border:1px solid #cad7e2;background:#fff;color:#29445c;padding:6px 9px;border-radius:999px;font-size:10.5px;font-weight:800;line-height:1.1;cursor:pointer;white-space:normal;text-align:center}.bogdan-race-chip[aria-pressed="true"]{background:#0d2f4d;border-color:#0d2f4d;color:#fff;box-shadow:0 3px 9px rgba(13,47,77,.18)}.bogdan-race-more{background:#eef4f8}.bogdan-race-more[aria-expanded="true"]{background:#dfeaf2}.bogdan-race-other{display:none;margin-top:7px;padding-top:7px;border-top:1px solid #e2e9ef}.bogdan-race-other.is-open{display:flex}.bogdan-race-filter-note{font-size:9px;color:#7a8b99;margin-top:6px}.bogdan-type-hidden{display:none!important}@media(max-width:600px){.bogdan-race-filter{margin:5px 6px 7px;padding:7px 7px 6px;border-radius:10px;width:calc(100% - 12px);grid-column:1/-1;flex:1 0 calc(100% - 12px)}.bogdan-race-filter-title{margin-bottom:5px}.bogdan-race-filter-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:100%}.bogdan-race-chip{width:100%;min-width:0;padding:7px 4px;font-size:9.5px;border-radius:10px}.bogdan-race-other{margin-top:6px;padding-top:6px}.bogdan-race-filter-note{margin-top:5px;line-height:1.2}}';
+  st.textContent=`
+    .bogdan-race-filter{
+      margin:8px 0 10px;padding:9px 10px;width:100%;max-width:none;
+      border:1px solid #dce5ed;border-radius:12px;
+      background:linear-gradient(180deg,#fbfdff,#f5f9fc);
+      box-shadow:0 4px 12px rgba(20,50,75,.05);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      grid-column:1/-1;flex:1 0 100%;align-self:stretch
+    }
+    .bogdan-race-filter-title{font-size:11px;font-weight:850;color:#41566a;margin:0 0 6px}
+    .bogdan-race-filter-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;width:100%}
+    .bogdan-race-chip{
+      appearance:none;border:1px solid #cad7e2;background:#fff;color:#29445c;
+      padding:6px 9px;border-radius:999px;font-size:10.5px;font-weight:800;
+      line-height:1.1;cursor:pointer;white-space:normal;text-align:center
+    }
+    .bogdan-race-chip[aria-pressed="true"]{background:#0d2f4d;border-color:#0d2f4d;color:#fff;box-shadow:0 3px 9px rgba(13,47,77,.18)}
+    .bogdan-race-more{background:#eef4f8}
+    .bogdan-race-more[aria-expanded="true"]{background:#dfeaf2}
+    .bogdan-race-other{display:none;margin-top:7px;padding-top:7px;border-top:1px solid #e2e9ef}
+    .bogdan-race-other.is-open{display:flex}
+    .bogdan-race-filter-note{font-size:9px;color:#7a8b99;margin-top:6px}
+    .bogdan-type-hidden{display:none!important}
+    @media(max-width:600px){
+      .bogdan-race-filter{margin:5px 0 7px;padding:7px;border-radius:10px;width:100%;max-width:none;grid-column:1/-1;flex-basis:100%}
+      .bogdan-race-filter-title{margin-bottom:5px}
+      .bogdan-race-filter-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+      .bogdan-race-chip{width:100%;min-width:0;min-height:38px;padding:5px 3px;font-size:9.5px;border-radius:9px}
+      .bogdan-race-other{margin-top:6px;padding-top:6px}
+      .bogdan-race-filter-note{margin-top:5px;line-height:1.2}
+    }
+  `;
   doc.head.appendChild(st);
 }
 
@@ -117,6 +162,24 @@ function applyRaceFilters(doc){
     h.classList.toggle('bogdan-type-hidden',!show);
   }
   updateRaceFilterUI(doc);
+}
+
+function filterHostFor(doc,legacy){
+  if(!legacy)return doc.querySelector('main')||doc.body;
+  let p=legacy.parentElement;
+  for(let i=0;i<7&&p;i++,p=p.parentElement){
+    const selects=p.querySelectorAll('select').length;
+    const inputs=p.querySelectorAll('input').length;
+    if(selects>=3 || (selects>=2&&inputs>=1))return p;
+  }
+  return legacy.parentElement?.parentElement||legacy.parentElement||doc.querySelector('main')||doc.body;
+}
+function sportFieldFor(legacy){
+  let p=legacy?.parentElement;
+  for(let i=0;i<4&&p;i++,p=p.parentElement){
+    if(p.querySelectorAll('select').length===1 && norm(p.innerText||p.textContent).length<160)return p;
+  }
+  return legacy?.parentElement||null;
 }
 
 function ensureTypeFilters(doc){
@@ -156,26 +219,70 @@ function ensureTypeFilters(doc){
   main.appendChild(more);
   OTHER_RACE_FILTERS.forEach(x=>makeChip(x,other));
 
-  if(anchor&&anchor.parentElement)anchor.parentElement.insertBefore(panel,anchor.nextSibling);
-  else{
-    const host=doc.querySelector('main')||doc.body;
-    host.insertBefore(panel,host.firstChild);
-  }
+  filterHost.appendChild(panel);
   applyRaceFilters(doc);
 }
 
 
-function decorate(doc,host,e){if(!host||host.classList.contains('bogdan-rated-host')||host.closest('.bogdan-rated-host'))return;host.classList.add('bogdan-rated-host');const box=doc.createElement('div');box.className='bogdan-feasibility';box.innerHTML=`<div class="bogdan-feasibility-head"><span>${e.badge||'⚪'} ${e.level||'Da valutare'}</span><span class="bogdan-feasibility-score">Fattibilità per te: ${e.score??'—'}/100</span></div><div class="bogdan-feasibility-detail"></div><div class="bogdan-feasibility-note">Valutazione ChatGPT basata sulla preparazione e sugli allenamenti registrati.</div>`;box.querySelector('.bogdan-feasibility-detail').textContent=e.detail||'';host.appendChild(box)}
-function process(){try{const doc=frame.contentDocument;if(!doc||!doc.body)return;addStyles(doc);ensureTypeFilters(doc);
-// Prima nascondi le schede che contengono una data passata. Questo passaggio parte dagli elementi-data,
-// così funziona anche quando titolo e data sono in sotto-elementi diversi della stessa scheda.
-for(const el of doc.querySelectorAll('time,span,p,div,td')){const tx=norm(el.innerText||el.textContent);if(tx.length>180||!datesInText(tx).length||!isPast(tx))continue;const h=raceHost(el);if(h){const full=norm(h.innerText||h.textContent);if(isPast(full))h.classList.add('bogdan-past-race')}}
-// Poi aggiungi la valutazione solo alle gare rimaste visibili.
-const seen=new Set();for(const t of doc.querySelectorAll('h2,h3,h4,strong,[class*="title"],a')){const h=raceHost(t);if(!h||seen.has(h))continue;seen.add(h);const text=norm(h.innerText||h.textContent);if(text.length<8||text.length>3000)continue;if(isPast(text)){h.classList.add('bogdan-past-race');continue}h.classList.remove('bogdan-past-race');const ev=evaluationFor(text);if(ev)decorate(doc,h,ev)}
-for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){const text=norm(el.innerText||el.textContent);if(isPast(text)){const p=el.closest('.leaflet-popup')||el;p.style.display='none'}}applyRaceFilters(doc);
-}catch(e){console.warn('Filtro/valutazioni gare non applicabili',e)}}
+function raceTitleFor(host){
+  const el=host.querySelector('h2,h3,h4,[class*="title"],strong');
+  const title=norm(el?.innerText||el?.textContent||'');
+  if(title && !/^calendario gare$/i.test(title))return title;
+  const text=norm(host.innerText||host.textContent);
+  return text.split(/\b(?:20\d{2}|\d{1,2}[\/.\-]\d{1,2}[\/.\-]20\d{2})\b/)[0].trim().slice(0,140);
+}
+function ensureRaceDetailLinks(doc){
+  for(const host of raceCandidates(doc)){
+    if(host.closest('.leaflet-container,.leaflet-popup'))continue;
+    if(host.querySelector('.bogdan-detail-link'))continue;
+    if(host.classList.contains('bogdan-extra-card') || host.querySelector('.bogdan-extra-actions'))continue;
+
+    const links=[...host.querySelectorAll('a[href]')].filter(a=>{
+      const href=a.getAttribute('href')||'';
+      return href && !href.startsWith('#') && !/^javascript:/i.test(href) && !/google\.[^/]+\/maps|maps\.google/i.test(href);
+    });
+    let href=links[0]?.href||'';
+    const title=raceTitleFor(host)||'gara sportiva';
+    if(!href)href='https://www.google.com/search?q='+encodeURIComponent(title);
+
+    const a=doc.createElement('a');
+    a.className='bogdan-detail-link';
+    a.href=href;
+    a.target='_blank';
+    a.rel='noopener';
+    a.textContent='Dettagli gara ↗';
+    host.appendChild(a);
+  }
+}
+
+function process(){try{
+  const doc=frame.contentDocument;if(!doc||!doc.body)return;
+  addStyles(doc);
+  doc.querySelectorAll('.bogdan-feasibility').forEach(x=>x.remove());
+  doc.querySelectorAll('.bogdan-rated-host').forEach(x=>x.classList.remove('bogdan-rated-host'));
+  ensureTypeFilters(doc);
+
+  // Nascondi le gare già passate.
+  for(const el of doc.querySelectorAll('time,span,p,div,td')){
+    const tx=norm(el.innerText||el.textContent);
+    if(tx.length>180||!datesInText(tx).length||!isPast(tx))continue;
+    const h=raceHost(el);
+    if(h){
+      const full=norm(h.innerText||h.textContent);
+      if(isPast(full))h.classList.add('bogdan-past-race');
+    }
+  }
+
+  for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){
+    const text=norm(el.innerText||el.textContent);
+    if(isPast(text)){const p=el.closest('.leaflet-popup')||el;p.style.display='none'}
+  }
+
+  ensureRaceDetailLinks(doc);
+  applyRaceFilters(doc);
+}catch(e){console.warn('Filtri gare non applicabili',e)}}
 function activate(){process();try{const doc=frame.contentDocument;if(!doc||!doc.body)return;const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(process,120)});obs.observe(doc.body,{childList:true,subtree:true})}catch(e){}}
-frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · gare passate nascoste · valutazione personale attiva'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
+frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · gare passate nascoste · filtri multipli attivi'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
 })();
 </script>
 </body>
