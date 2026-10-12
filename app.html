@@ -52,6 +52,7 @@ const PRIMARY_RACE_FILTERS=[
   {key:'maratona',label:'Maratona'}
 ];
 const OTHER_RACE_FILTERS=[
+  {key:'full',label:'Full Ironman'},
   {key:'trail',label:'Trail'},
   {key:'10k',label:'10 km'},
   {key:'duathlon',label:'Duathlon'},
@@ -68,6 +69,7 @@ function raceTypesFor(text){
   if(/\b(?:super\s*)?sprint\b/i.test(s))out.add('sprint');
   if(/\b(?:olimpic[oa]|olympic)\b/i.test(s))out.add('olimpico');
   if(/(?:70[.,]3|half\s*ironman|ironman\s*70|middle\s*distance|triathlon\s+medio|medio\s+triathlon)/i.test(s))out.add('70.3');
+  if(/(?:ironman\s*full|full\s*ironman|full[-\s]*distance|140[.,]6|3[.,]8\s*(?:km)?\s*[\/·-]\s*180\s*(?:km)?\s*[\/·-]\s*42(?:[.,]2)?)/i.test(s))out.add('full');
   if(halfMar)out.add('mezza');
   if(marathon)out.add('maratona');
 
@@ -190,27 +192,147 @@ function updateRaceFilterUI(doc){
 
 function raceCandidates(doc){
   const found=new Set();
-  for(const el of doc.querySelectorAll('time,h2,h3,h4,strong,[class*="title"],[class*="date"],.bogdan-extra-card')){
-    if(el.closest&&el.closest('#bogdan-race-type-filters'))continue;
-    const h=el.classList&&el.classList.contains('bogdan-extra-card')?el:raceHost(el);
-    if(!h||h.id==='bogdan-race-type-filters')continue;
-    const tx=norm(h.innerText||h.textContent);
-    if(tx.length<8||tx.length>3500||!datesInText(tx).length)continue;
-    found.add(h);
+
+  for(const el of doc.querySelectorAll('time,[class*="date"],span,p,div,td')){
+    if(el.closest&&el.closest('#bogdan-race-type-filters,.leaflet-container,.leaflet-popup'))continue;
+    const own=norm(el.innerText||el.textContent);
+    if(own.length>180||!datesInText(own).length)continue;
+
+    let p=el,best=null;
+    for(let i=0;i<7&&p;i++,p=p.parentElement){
+      if(p.id==='bogdan-race-type-filters'||p.closest?.('.leaflet-container,.leaflet-popup'))break;
+      const tx=norm(p.innerText||p.textContent);
+      if(tx.length<8||tx.length>2200||!datesInText(tx).length)continue;
+      const hasIdentity=!!p.querySelector?.('h2,h3,h4,strong,a,[class*="title"],[class*="name"]');
+      if(hasIdentity){best=p;break}
+      if(!best&&tx.length<700)best=p;
+    }
+    if(best)found.add(best);
   }
-  return [...found];
+
+  doc.querySelectorAll('.bogdan-extra-card').forEach(x=>found.add(x));
+
+  const arr=[...found];
+  return arr.filter(x=>!arr.some(y=>y!==x&&x.contains(y)));
+}
+
+function matchesActiveRaceTypes(text){
+  if(!activeRaceTypes.size)return true;
+  const types=raceTypesFor(text);
+  return [...activeRaceTypes].some(k=>types.has(k));
+}
+
+function updateVisibleCount(doc,visible){
+  for(const el of doc.querySelectorAll('div,span,p')){
+    const tx=norm(el.textContent);
+    if(/^\d+\s+eventi?$/i.test(tx)){
+      el.textContent=visible+' '+(visible===1?'evento':'eventi');
+      break;
+    }
+  }
+}
+
+function leafletText(layer){
+  const parts=[];
+  try{
+    const popup=layer.getPopup?.()||layer._popup;
+    let v=popup?.getContent?.() ?? popup?._content;
+    if(typeof v==='function')v=v(layer);
+    if(v&&v.nodeType)parts.push(v.innerText||v.textContent||'');
+    else if(v!=null)parts.push(String(v));
+  }catch{}
+  try{
+    const tip=layer.getTooltip?.()||layer._tooltip;
+    let v=tip?.getContent?.() ?? tip?._content;
+    if(v&&v.nodeType)parts.push(v.innerText||v.textContent||'');
+    else if(v!=null)parts.push(String(v));
+  }catch{}
+  try{
+    const o=layer.options||{};
+    ['title','alt','name','label','type','discipline','distance','category'].forEach(k=>{if(o[k]!=null)parts.push(String(o[k]))});
+  }catch{}
+  return norm(parts.join(' '));
+}
+
+function findLeafletMaps(win){
+  const maps=[];
+  try{
+    for(const k of Object.keys(win)){
+      let v;
+      try{v=win[k]}catch{continue}
+      if(!v||typeof v!=='object')continue;
+      if(typeof v.eachLayer==='function'&&typeof v.addLayer==='function'&&typeof v.removeLayer==='function'&&typeof v.getCenter==='function'){
+        maps.push(v);
+      }
+    }
+  }catch{}
+  return [...new Set(maps)];
+}
+
+function collectLeafletMarkers(win){
+  if(win.__bogdanRaceMarkers?.length)return win.__bogdanRaceMarkers;
+  const entries=[];
+  const seen=new Set();
+
+  function walk(layer,parent,map){
+    if(!layer||seen.has(layer))return;
+    seen.add(layer);
+
+    let children=null;
+    try{
+      if(typeof layer.getLayers==='function')children=layer.getLayers();
+    }catch{}
+    if(Array.isArray(children)&&children.length){
+      for(const child of children)walk(child,layer,map);
+      return;
+    }
+
+    if(typeof layer.getLatLng==='function'){
+      entries.push({layer,parent:parent||map,map,text:leafletText(layer),visible:true});
+    }
+  }
+
+  for(const map of findLeafletMaps(win)){
+    try{map.eachLayer(layer=>walk(layer,null,map))}catch{}
+  }
+
+  win.__bogdanRaceMarkers=entries;
+  return entries;
+}
+
+function applyLeafletFilters(doc){
+  const win=doc.defaultView;
+  if(!win)return;
+  const entries=collectLeafletMarkers(win);
+  if(!entries.length)return;
+
+  for(const e of entries){
+    if(!e.text)e.text=leafletText(e.layer);
+    const show=!activeRaceTypes.size || (e.text && matchesActiveRaceTypes(e.text));
+
+    if(show&&!e.visible){
+      try{e.parent.addLayer(e.layer);e.visible=true}catch{}
+    }else if(!show&&e.visible){
+      try{e.parent.removeLayer(e.layer);e.visible=false}catch{}
+    }
+  }
 }
 
 function applyRaceFilters(doc){
-  for(const h of raceCandidates(doc)){
+  let visible=0;
+  const cards=raceCandidates(doc);
+
+  for(const h of cards){
     const tx=norm(h.innerText||h.textContent);
-    const types=raceTypesFor(tx);
-    const show=!activeRaceTypes.size||[...activeRaceTypes].some(k=>types.has(k));
+    const show=matchesActiveRaceTypes(tx);
     h.classList.toggle('bogdan-type-hidden',!show);
+    if(show&&!h.classList.contains('bogdan-past-race'))visible++;
   }
+
+  updateVisibleCount(doc,visible);
+  applyLeafletFilters(doc);
   updateRaceFilterUI(doc);
 }
-
 function filterHostFor(doc,legacy){
   if(!legacy)return doc.querySelector('main')||doc.body;
   let p=legacy.parentElement;
