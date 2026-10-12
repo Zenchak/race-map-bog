@@ -29,14 +29,150 @@ function datesInText(text){const out=[],s=norm(text).toLowerCase();let m;const i
 function isPast(text){const ds=datesInText(text);if(!ds.length)return false;const today=new Date();today.setHours(0,0,0,0);return Math.max(...ds.map(d=>{d.setHours(0,0,0,0);return d.getTime()}))<today.getTime()}
 function addStyles(doc){if(doc.getElementById('bogdan-feasibility-style'))return;const st=doc.createElement('style');st.id='bogdan-feasibility-style';st.textContent=`.bogdan-feasibility{margin:9px 0 4px;padding:9px 10px;border-radius:12px;background:#f6f8fb;border:1px solid #dce4ec;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}.bogdan-feasibility-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;font-weight:800;color:#172536}.bogdan-feasibility-score{margin-left:auto;font-size:11px;color:#5f6f80;font-weight:800}.bogdan-feasibility-detail{font-size:11px;color:#536474;margin-top:4px}.bogdan-feasibility-note{font-size:9px;color:#8593a2;margin-top:5px}.bogdan-past-race{display:none!important}@media(max-width:600px){.bogdan-feasibility{padding:8px}.bogdan-feasibility-detail{font-size:10px}.bogdan-feasibility-score{margin-left:0}}`;doc.head.appendChild(st)}
 function raceHost(el){let h=el.closest('article,li,tr,.card,[class*="card"],[class*="item"],[class*="entry"]');if(h)return h;let p=el;for(let i=0;i<6&&p;i++,p=p.parentElement){const tx=norm(p.innerText||p.textContent);if(datesInText(tx).length&&tx.length>20&&tx.length<2500)return p}return el.parentElement}
+
+const PRIMARY_RACE_FILTERS=[
+  {key:'sprint',label:'Sprint'},
+  {key:'olimpico',label:'Olimpico'},
+  {key:'70.3',label:'70.3'},
+  {key:'mezza',label:'Mezza maratona'},
+  {key:'maratona',label:'Maratona'}
+];
+const OTHER_RACE_FILTERS=[
+  {key:'trail',label:'Trail'},
+  {key:'10k',label:'10 km'},
+  {key:'duathlon',label:'Duathlon'},
+  {key:'ciclismo',label:'Ciclismo'},
+  {key:'nuoto',label:'Nuoto'},
+  {key:'aquathlon',label:'Aquathlon'},
+  {key:'altro',label:'Altro'}
+];
+const activeRaceTypes=new Set();
+
+function raceTypesFor(text){
+  const s=norm(text).toLowerCase(),out=new Set();
+  const halfMar=/(?:mezza\s+maratona|half\s+marathon|\b21(?:[.,]1)?\s*km\b)/i.test(s);
+  const marathon=!halfMar&&/(?:\bmaratona\b|\bmarathon\b|\b42(?:[.,]2)?\s*km\b)/i.test(s);
+  if(/\b(?:super\s*)?sprint\b/i.test(s))out.add('sprint');
+  if(/\b(?:olimpic[oa]|olympic)\b/i.test(s))out.add('olimpico');
+  if(/(?:70[.,]3|half\s*ironman|ironman\s*70|middle\s*distance|triathlon\s+medio|medio\s+triathlon)/i.test(s))out.add('70.3');
+  if(halfMar)out.add('mezza');
+  if(marathon)out.add('maratona');
+
+  if(/(?:\btrail\b|ultra\s*trail|skyrace|sky\s*race|vertical\s*(?:km|race)?)/i.test(s))out.add('trail');
+  if(/(?:\b10\s*km\b|\b10k\b)/i.test(s))out.add('10k');
+  if(/\bduathlon\b/i.test(s))out.add('duathlon');
+  if(/(?:\bciclismo\b|\bcycling\b|\bgranfondo\b|\bgran\s*fondo\b|\bcriterium\b|\bciclotur)/i.test(s))out.add('ciclismo');
+  if(/(?:\bnuoto\b|\bswim(?:ming)?\b|open\s*water)/i.test(s))out.add('nuoto');
+  if(/\baquathlon\b/i.test(s))out.add('aquathlon');
+
+  if(!out.size)out.add('altro');
+  return out;
+}
+
+function findSportSelect(doc){
+  for(const sel of doc.querySelectorAll('select')){
+    const meta=norm([sel.id,sel.name,sel.getAttribute('aria-label'),sel.getAttribute('title')].filter(Boolean).join(' ')).toLowerCase();
+    const opts=norm(Array.from(sel.options||[]).map(o=>o.textContent).join(' ')).toLowerCase();
+    if(/\bsport\b/.test(meta))return sel;
+    const hits=['triathlon','trail','corsa','running','nuoto','ciclismo','duathlon'].filter(x=>opts.includes(x)).length;
+    if(hits>=2)return sel;
+  }
+  return null;
+}
+
+function addRaceFilterStyles(doc){
+  if(doc.getElementById('bogdan-race-filter-style'))return;
+  const st=doc.createElement('style');
+  st.id='bogdan-race-filter-style';
+  st.textContent='.bogdan-race-filter{margin:10px 12px 12px;padding:11px 12px;border:1px solid #dce5ed;border-radius:14px;background:linear-gradient(180deg,#fbfdff,#f5f9fc);box-shadow:0 5px 16px rgba(20,50,75,.06);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}.bogdan-race-filter-title{font-size:11px;font-weight:850;color:#41566a;margin:0 0 7px}.bogdan-race-filter-row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.bogdan-race-chip{appearance:none;border:1px solid #cad7e2;background:#fff;color:#29445c;padding:7px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1;cursor:pointer}.bogdan-race-chip[aria-pressed="true"]{background:#0d2f4d;border-color:#0d2f4d;color:#fff;box-shadow:0 3px 9px rgba(13,47,77,.18)}.bogdan-race-more{background:#eef4f8}.bogdan-race-more[aria-expanded="true"]{background:#dfeaf2}.bogdan-race-other{display:none;margin-top:8px;padding-top:8px;border-top:1px solid #e2e9ef}.bogdan-race-other.is-open{display:flex}.bogdan-race-filter-note{font-size:9px;color:#7a8b99;margin-top:8px}.bogdan-type-hidden{display:none!important}@media(max-width:600px){.bogdan-race-filter{margin:8px 8px 10px;padding:10px}.bogdan-race-chip{padding:7px 9px;font-size:10px}}';
+  doc.head.appendChild(st);
+}
+
+function updateRaceFilterUI(doc){
+  const panel=doc.getElementById('bogdan-race-type-filters');
+  if(!panel)return;
+  for(const b of panel.querySelectorAll('[data-race-filter]'))b.setAttribute('aria-pressed',activeRaceTypes.has(b.dataset.raceFilter)?'true':'false');
+  const note=panel.querySelector('.bogdan-race-filter-note');
+  if(note)note.textContent=activeRaceTypes.size?'Filtri combinati attivi · tocca di nuovo per rimuoverli':'Nessuna selezione: mostro tutte le gare';
+}
+
+function raceCandidates(doc){
+  const found=new Set();
+  for(const el of doc.querySelectorAll('time,h2,h3,h4,strong,[class*="title"],[class*="date"],.bogdan-extra-card')){
+    if(el.closest&&el.closest('#bogdan-race-type-filters'))continue;
+    const h=el.classList&&el.classList.contains('bogdan-extra-card')?el:raceHost(el);
+    if(!h||h.id==='bogdan-race-type-filters')continue;
+    const tx=norm(h.innerText||h.textContent);
+    if(tx.length<8||tx.length>3500||!datesInText(tx).length)continue;
+    found.add(h);
+  }
+  return [...found];
+}
+
+function applyRaceFilters(doc){
+  for(const h of raceCandidates(doc)){
+    const tx=norm(h.innerText||h.textContent);
+    const types=raceTypesFor(tx);
+    const show=!activeRaceTypes.size||[...activeRaceTypes].some(k=>types.has(k));
+    h.classList.toggle('bogdan-type-hidden',!show);
+  }
+  updateRaceFilterUI(doc);
+}
+
+function ensureTypeFilters(doc){
+  if(doc.getElementById('bogdan-race-type-filters')){updateRaceFilterUI(doc);return}
+  addRaceFilterStyles(doc);
+
+  const legacy=findSportSelect(doc);
+  let anchor=null;
+  if(legacy){
+    legacy.style.display='none';
+    legacy.setAttribute('aria-hidden','true');
+    if(legacy.id){
+      const lab=doc.querySelector('label[for="'+legacy.id.replace(/"/g,'\\"')+'"]');
+      if(lab)lab.style.display='none';
+    }
+    if(legacy.parentElement&&legacy.parentElement.tagName==='LABEL'&&legacy.parentElement.querySelectorAll('select').length===1){
+      legacy.parentElement.style.display='none';
+      anchor=legacy.parentElement;
+    }else anchor=legacy;
+  }
+
+  const panel=doc.createElement('section');
+  panel.id='bogdan-race-type-filters';
+  panel.className='bogdan-race-filter';
+  panel.innerHTML='<div class="bogdan-race-filter-title">Formato gara</div><div class="bogdan-race-filter-row bogdan-race-main"></div><div class="bogdan-race-filter-row bogdan-race-other"></div><div class="bogdan-race-filter-note">Nessuna selezione: mostro tutte le gare</div>';
+
+  const main=panel.querySelector('.bogdan-race-main');
+  const other=panel.querySelector('.bogdan-race-other');
+  const makeChip=(x,parent)=>{
+    const b=doc.createElement('button');b.type='button';b.className='bogdan-race-chip';b.dataset.raceFilter=x.key;b.textContent=x.label;b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',()=>{activeRaceTypes.has(x.key)?activeRaceTypes.delete(x.key):activeRaceTypes.add(x.key);applyRaceFilters(doc)});
+    parent.appendChild(b);
+  };
+  PRIMARY_RACE_FILTERS.forEach(x=>makeChip(x,main));
+  const more=doc.createElement('button');more.type='button';more.className='bogdan-race-chip bogdan-race-more';more.textContent='Altri ▾';more.setAttribute('aria-expanded','false');
+  more.addEventListener('click',()=>{const open=!other.classList.contains('is-open');other.classList.toggle('is-open',open);more.setAttribute('aria-expanded',open?'true':'false');more.textContent=open?'Altri ▴':'Altri ▾'});
+  main.appendChild(more);
+  OTHER_RACE_FILTERS.forEach(x=>makeChip(x,other));
+
+  if(anchor&&anchor.parentElement)anchor.parentElement.insertBefore(panel,anchor.nextSibling);
+  else{
+    const host=doc.querySelector('main')||doc.body;
+    host.insertBefore(panel,host.firstChild);
+  }
+  applyRaceFilters(doc);
+}
+
+
 function decorate(doc,host,e){if(!host||host.classList.contains('bogdan-rated-host')||host.closest('.bogdan-rated-host'))return;host.classList.add('bogdan-rated-host');const box=doc.createElement('div');box.className='bogdan-feasibility';box.innerHTML=`<div class="bogdan-feasibility-head"><span>${e.badge||'⚪'} ${e.level||'Da valutare'}</span><span class="bogdan-feasibility-score">Fattibilità per te: ${e.score??'—'}/100</span></div><div class="bogdan-feasibility-detail"></div><div class="bogdan-feasibility-note">Valutazione ChatGPT basata sulla preparazione e sugli allenamenti registrati.</div>`;box.querySelector('.bogdan-feasibility-detail').textContent=e.detail||'';host.appendChild(box)}
-function process(){try{const doc=frame.contentDocument;if(!doc||!doc.body)return;addStyles(doc);
+function process(){try{const doc=frame.contentDocument;if(!doc||!doc.body)return;addStyles(doc);ensureTypeFilters(doc);
 // Prima nascondi le schede che contengono una data passata. Questo passaggio parte dagli elementi-data,
 // così funziona anche quando titolo e data sono in sotto-elementi diversi della stessa scheda.
 for(const el of doc.querySelectorAll('time,span,p,div,td')){const tx=norm(el.innerText||el.textContent);if(tx.length>180||!datesInText(tx).length||!isPast(tx))continue;const h=raceHost(el);if(h){const full=norm(h.innerText||h.textContent);if(isPast(full))h.classList.add('bogdan-past-race')}}
 // Poi aggiungi la valutazione solo alle gare rimaste visibili.
 const seen=new Set();for(const t of doc.querySelectorAll('h2,h3,h4,strong,[class*="title"],a')){const h=raceHost(t);if(!h||seen.has(h))continue;seen.add(h);const text=norm(h.innerText||h.textContent);if(text.length<8||text.length>3000)continue;if(isPast(text)){h.classList.add('bogdan-past-race');continue}h.classList.remove('bogdan-past-race');const ev=evaluationFor(text);if(ev)decorate(doc,h,ev)}
-for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){const text=norm(el.innerText||el.textContent);if(isPast(text)){const p=el.closest('.leaflet-popup')||el;p.style.display='none'}}
+for(const el of doc.querySelectorAll('.leaflet-popup-content,[class*="popup"]')){const text=norm(el.innerText||el.textContent);if(isPast(text)){const p=el.closest('.leaflet-popup')||el;p.style.display='none'}}applyRaceFilters(doc);
 }catch(e){console.warn('Filtro/valutazioni gare non applicabili',e)}}
 function activate(){process();try{const doc=frame.contentDocument;if(!doc||!doc.body)return;const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(process,120)});obs.observe(doc.body,{childList:true,subtree:true})}catch(e){}}
 frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · gare passate nascoste · valutazione personale attiva'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
