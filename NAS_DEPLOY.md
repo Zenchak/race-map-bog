@@ -35,3 +35,28 @@ The runner account needs:
 - local TCP access to `127.0.0.1:8082`.
 
 It does **not** need DSM administrator access or access to unrelated NAS data.
+
+
+## One-time runner installation
+
+GitHub generates a temporary registration token from:
+
+`Repository → Settings → Actions → Runners → New self-hosted runner → Linux → x64`.
+
+On the NAS over SSH, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Zenchak/race-map-bog/main/scripts/setup-synology-runner.sh | bash
+```
+
+The script prompts for the temporary token without echoing it, installs the runner under
+`/volume1/docker/bogdan-sites/github-runner-race`, registers the custom label `synology`,
+and starts it.
+
+For reboot persistence, add a DSM Task Scheduler **Boot-up** task running:
+
+```bash
+/volume1/docker/bogdan-sites/github-runner-race/start-runner.sh
+```
+
+The deployment workflow only runs on pushes to `main` or manual dispatch; it does not run on pull requests.
