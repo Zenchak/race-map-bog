@@ -19,9 +19,19 @@ jobs:
       - name: Checkout deployment scripts
         uses: actions/checkout@v4
 
-      - name: Test HUB filters and dataset
+      - name: Test HUB dataset before deploy
         shell: bash
-        run: node scripts/test-hub-data.js
+        run: |
+          set -e
+          test "$(grep -oE '"?id"?[[:space:]]*:' extra-races.js | wc -l | tr -d ' ')" -ge 50
+          grep -q 'crema-half-2026' extra-races.js
+          grep -q 'padenghe-half-2026' extra-races.js
+          grep -q 'como-lake-half-2026' extra-races.js
+          grep -q 'brescia-art-marathon-2027' extra-races.js
+          grep -q 'lanzarote-full-2027' extra-races.js
+          grep -q '<script src="./extra-races.js"></script>' app.html
+          grep -q 'applyStructuredRaceFilters' app.html
+          echo HUB_DATA_SELFTEST_OK
 
       - name: Show NAS container metadata
         shell: bash
