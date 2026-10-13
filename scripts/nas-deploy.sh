@@ -36,7 +36,7 @@ if [[ ! -d "$LIVE_DIR" ]]; then
   exit 21
 fi
 
-for required in index.html app.html extra-races.js; do
+for required in index.html app.html extra-races.js hub-overlay.js; do
   [[ -s "$SOURCE_DIR/$required" ]] || {
     write_status "ERROR" "Source checkout missing $required." "$EXPECTED_SHA" "$LIVE_DIR"
     exit 22
@@ -45,29 +45,42 @@ done
 
 BACKUP_DIR="$LIVE_DIR/.deploy-backup"
 mkdir -p "$BACKUP_DIR"
-for file in index.html app.html extra-races.js feasibility.js; do
+for file in index.html app.html extra-races.js feasibility.js hub-overlay.js; do
   [[ -f "$LIVE_DIR/$file" ]] && cp "$LIVE_DIR/$file" "$BACKUP_DIR/$file.previous" || true
 done
 
 install -m 0644 "$SOURCE_DIR/index.html" "$LIVE_DIR/index.html"
 install -m 0644 "$SOURCE_DIR/app.html" "$LIVE_DIR/app.html"
 install -m 0644 "$SOURCE_DIR/extra-races.js" "$LIVE_DIR/extra-races.js"
+install -m 0644 "$SOURCE_DIR/hub-overlay.js" "$LIVE_DIR/hub-overlay.js"
+install -m 0644 "$SOURCE_DIR/hub-overlay.js" "$LIVE_DIR/legacy/hub-overlay.js"
 [[ -f "$SOURCE_DIR/feasibility.js" ]] && install -m 0644 "$SOURCE_DIR/feasibility.js" "$LIVE_DIR/feasibility.js"
 
-grep -q "HUB_BUILD='2026.10.13-0748'" "$LIVE_DIR/app.html"
-grep -q "applyStructuredRaceFilters" "$LIVE_DIR/app.html"
+# Ensure the legacy page runs the direct HUB renderer in its own document.
+if ! grep -q 'hub-overlay.js' "$LIVE_DIR/legacy/index.html"; then
+  sed -i 's#</body>#<script src="/legacy/hub-overlay.js?build=202610130805"></script></body>#' "$LIVE_DIR/legacy/index.html"
+else
+  sed -i 's#hub-overlay.js[^"]*#hub-overlay.js?build=202610130805#g' "$LIVE_DIR/legacy/index.html"
+fi
+
+grep -q "HUB build 2026.10.13-0805" "$LIVE_DIR/app.html"
 grep -q "window.EXTRA_RACES" "$LIVE_DIR/extra-races.js"
+grep -q "hub-overlay.js" "$LIVE_DIR/legacy/index.html"
+grep -q "HUB 2026.10.13-0805" "$LIVE_DIR/legacy/hub-overlay.js"
 
 TMPDIR_LOCAL="$(mktemp -d)"
 sleep 2
 curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/" -o "$TMPDIR_LOCAL/index.html"
 curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/app.html"
 curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/extra-races.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/extra-races.js"
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/index.html?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/legacy-index.html"
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/hub-overlay.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/hub-overlay.js"
 
 grep -q "Calendario Gare" "$TMPDIR_LOCAL/index.html"
-grep -q "HUB_BUILD='2026.10.13-0748'" "$TMPDIR_LOCAL/app.html"
-grep -q "applyStructuredRaceFilters" "$TMPDIR_LOCAL/app.html"
+grep -q "HUB build 2026.10.13-0805" "$TMPDIR_LOCAL/app.html"
 grep -q "window.EXTRA_RACES" "$TMPDIR_LOCAL/extra-races.js"
+grep -q "hub-overlay.js" "$TMPDIR_LOCAL/legacy-index.html"
+grep -q "HUB 2026.10.13-0805" "$TMPDIR_LOCAL/hub-overlay.js"
 
 RACE_COUNT="$(grep -oE '"?id"?[[:space:]]*:' "$TMPDIR_LOCAL/extra-races.js" | wc -l | tr -d ' ')"
 [[ "$RACE_COUNT" -ge 50 ]] || {
