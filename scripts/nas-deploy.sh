@@ -54,7 +54,7 @@ install -m 0644 "$SOURCE_DIR/app.html" "$LIVE_DIR/app.html"
 install -m 0644 "$SOURCE_DIR/extra-races.js" "$LIVE_DIR/extra-races.js"
 [[ -f "$SOURCE_DIR/feasibility.js" ]] && install -m 0644 "$SOURCE_DIR/feasibility.js" "$LIVE_DIR/feasibility.js"
 
-grep -q "HUB_BUILD='2026.10.12-2350'" "$LIVE_DIR/app.html"
+grep -q "HUB_BUILD='2026.10.13-0700'" "$LIVE_DIR/app.html"
 grep -q "applyStructuredRaceFilters" "$LIVE_DIR/app.html"
 grep -q "window.EXTRA_RACES" "$LIVE_DIR/extra-races.js"
 
@@ -65,7 +65,7 @@ curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html
 curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/extra-races.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/extra-races.js"
 
 grep -q "Calendario Gare" "$TMPDIR_LOCAL/index.html"
-grep -q "HUB_BUILD='2026.10.12-2350'" "$TMPDIR_LOCAL/app.html"
+grep -q "HUB_BUILD='2026.10.13-0700'" "$TMPDIR_LOCAL/app.html"
 grep -q "applyStructuredRaceFilters" "$TMPDIR_LOCAL/app.html"
 grep -q "window.EXTRA_RACES" "$TMPDIR_LOCAL/extra-races.js"
 
