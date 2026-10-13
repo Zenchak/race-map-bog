@@ -51,6 +51,8 @@ jobs:
         run: |
           echo "=== legacy files ==="
           ls -la /sites/race-map-bog/legacy | head -40 || true
+          echo "=== legacy CSS/head ==="
+          sed -n '1,90p' /sites/race-map-bog/legacy/index.html || true
           echo "=== Gare visibili context ==="
           grep -n -C 8 "Gare visibili" /sites/race-map-bog/legacy/index.html || true
           echo "=== aside/main tags ==="
