@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPO_SLUG="Zenchak/race-map-bog"
 ROOT="${NAS_SITES_ROOT:-/volume1/docker/bogdan-sites}"
 EXPECTED_SHA="${1:-${GITHUB_SHA:-}}"
 STATUS_ROOT="${ROOT}/deploy-status-race-map.json"
 PORT="${RACE_HUB_PORT:-8082}"
+SOURCE_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
+RUNNER_ROOT="${ROOT}/github-runner-race"
 
-json_escape() {
-  python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])'
-}
+DEPLOY_DIR=""
+TMPDIR_LOCAL=""
 
 write_status() {
   local status="$1"
@@ -18,135 +18,134 @@ write_status() {
   local deploy_path="${4:-}"
   local now
   now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  local msg_escaped path_escaped
-  msg_escaped="$(printf '%s' "$message" | json_escape)"
-  path_escaped="$(printf '%s' "$deploy_path" | json_escape)"
-  cat > "$STATUS_ROOT" <<EOF
-{
-  "service": "race-map-bog",
-  "status": "$status",
-  "deployed_sha": "$sha",
-  "expected_sha": "$EXPECTED_SHA",
-  "deployed_at": "$now",
-  "deploy_path": "$path_escaped",
-  "local_url": "http://127.0.0.1:$PORT/",
-  "message": "$msg_escaped"
-}
-EOF
+
+  jq -n     --arg service "race-map-bog"     --arg status "$status"     --arg deployed_sha "$sha"     --arg expected_sha "$EXPECTED_SHA"     --arg deployed_at "$now"     --arg deploy_path "$deploy_path"     --arg local_url "http://127.0.0.1:$PORT/"     --arg message "$message"     '{
+      service:$service,
+      status:$status,
+      deployed_sha:$deployed_sha,
+      expected_sha:$expected_sha,
+      deployed_at:$deployed_at,
+      deploy_path:$deploy_path,
+      local_url:$local_url,
+      message:$message
+    }' > "$STATUS_ROOT"
+
   if [[ -n "$deploy_path" && -d "$deploy_path" ]]; then
     cp "$STATUS_ROOT" "$deploy_path/deploy-status.json" 2>/dev/null || true
   fi
 }
 
-DEPLOY_DIR=""
+cleanup() {
+  [[ -n "$TMPDIR_LOCAL" && -d "$TMPDIR_LOCAL" ]] && rm -rf "$TMPDIR_LOCAL" || true
+}
+trap cleanup EXIT
 
 on_error() {
   local code=$?
   local line="${BASH_LINENO[0]:-unknown}"
-  local sha=""
-  if [[ -n "$DEPLOY_DIR" && -d "$DEPLOY_DIR/.git" ]]; then
-    sha="$(git -C "$DEPLOY_DIR" rev-parse HEAD 2>/dev/null || true)"
-  fi
-  write_status "ERROR" "Deploy failed at line $line (exit $code)." "$sha" "$DEPLOY_DIR"
+  write_status "ERROR" "Deploy failed at line $line (exit $code)." "$EXPECTED_SHA" "$DEPLOY_DIR" || true
   exit "$code"
 }
 trap on_error ERR
 
-echo "Finding local checkout for $REPO_SLUG under $ROOT ..."
+echo "SOURCE_DIR=$SOURCE_DIR"
+echo "ROOT=$ROOT"
+echo "Checking current HUB served on port $PORT ..."
 
-while IFS= read -r -d '' gitdir; do
-  dir="${gitdir%/.git}"
-  origin="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
-  case "$origin" in
-    *github.com/Zenchak/race-map-bog*|*Zenchak/race-map-bog.git*)
-      DEPLOY_DIR="$dir"
-      break
-      ;;
+TMPDIR_LOCAL="$(mktemp -d)"
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/" -o "$TMPDIR_LOCAL/current-index.html"
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html" -o "$TMPDIR_LOCAL/current-app.html"
+
+CURRENT_APP_SHA="$(sha256sum "$TMPDIR_LOCAL/current-app.html" | awk '{print $1}')"
+echo "Current served app SHA256: $CURRENT_APP_SHA"
+
+echo "Finding the exact app.html currently served by the NAS ..."
+while IFS= read -r -d '' candidate; do
+  case "$candidate" in
+    "$RUNNER_ROOT"/*) continue ;;
   esac
-done < <(find "$ROOT" -maxdepth 6 -type d -name .git -print0 2>/dev/null)
 
+  candidate_sha="$(sha256sum "$candidate" 2>/dev/null | awk '{print $1}' || true)"
+  if [[ "$candidate_sha" == "$CURRENT_APP_SHA" ]]; then
+    DEPLOY_DIR="$(dirname "$candidate")"
+    break
+  fi
+done < <(find "$ROOT" -maxdepth 8 -type f -name app.html -print0 2>/dev/null)
+
+# Fallback: locate a likely race-HUB directory even if the served file was transformed/cached.
 if [[ -z "$DEPLOY_DIR" ]]; then
-  for candidate in     "$ROOT/race-map-bog"     "$ROOT/gare/race-map-bog"     "$ROOT/gare"     "$ROOT/sites/race-map-bog"; do
-    if [[ -d "$candidate/.git" ]]; then
-      origin="$(git -C "$candidate" remote get-url origin 2>/dev/null || true)"
-      if [[ "$origin" == *"Zenchak/race-map-bog"* ]]; then
-        DEPLOY_DIR="$candidate"
-        break
-      fi
+  echo "Exact hash match not found; checking likely HUB candidates ..."
+  while IFS= read -r -d '' candidate; do
+    case "$candidate" in
+      "$RUNNER_ROOT"/*) continue ;;
+    esac
+    dir="$(dirname "$candidate")"
+    if [[ -f "$dir/index.html" ]] && grep -q "Calendario Gare" "$candidate" 2>/dev/null; then
+      DEPLOY_DIR="$dir"
+      echo "Fallback candidate: $DEPLOY_DIR"
+      break
     fi
-  done
+  done < <(find "$ROOT" -maxdepth 8 -type f -name app.html -print0 2>/dev/null)
 fi
 
 if [[ -z "$DEPLOY_DIR" ]]; then
-  write_status "ERROR" "Could not find a local Git checkout whose origin is Zenchak/race-map-bog." "" ""
-  echo "ERROR: race-map-bog checkout not found under $ROOT" >&2
+  echo "ERROR: could not identify the NAS directory serving app.html on port $PORT." >&2
+  echo "app.html candidates under $ROOT:" >&2
+  find "$ROOT" -maxdepth 8 -type f -name app.html -not -path "$RUNNER_ROOT/*" -print 2>/dev/null >&2 || true
+  write_status "ERROR" "Could not identify the NAS directory serving the race HUB." "$EXPECTED_SHA" ""
   exit 20
 fi
 
-echo "Deploy path: $DEPLOY_DIR"
-
-git -C "$DEPLOY_DIR" fetch --prune origin main
-git -C "$DEPLOY_DIR" reset --hard origin/main
-
-DEPLOYED_SHA="$(git -C "$DEPLOY_DIR" rev-parse HEAD)"
-echo "Deployed SHA: $DEPLOYED_SHA"
-
-if [[ -n "$EXPECTED_SHA" && "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]]; then
-  write_status "ERROR" "Local checkout did not reach the expected GitHub SHA." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  echo "ERROR: expected $EXPECTED_SHA, deployed $DEPLOYED_SHA" >&2
-  exit 21
-fi
+echo "DEPLOY_DIR=$DEPLOY_DIR"
 
 for required in index.html app.html extra-races.js; do
-  if [[ ! -s "$DEPLOY_DIR/$required" ]]; then
-    write_status "ERROR" "Required file missing after deployment: $required" "$DEPLOYED_SHA" "$DEPLOY_DIR"
-    echo "ERROR: required file missing: $required" >&2
-    exit 22
+  if [[ ! -s "$SOURCE_DIR/$required" ]]; then
+    write_status "ERROR" "Source checkout is missing required file: $required" "$EXPECTED_SHA" "$DEPLOY_DIR"
+    exit 21
   fi
 done
 
-if ! grep -q 'loadExtraRaces' "$DEPLOY_DIR/app.html"; then
-  write_status "ERROR" "app.html is present but the HUB extra-race loader is missing." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 23
-fi
-if ! grep -q 'baseFilterState' "$DEPLOY_DIR/app.html"; then
-  write_status "ERROR" "app.html is present but the combined-filter fix is missing." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 24
-fi
-if ! grep -q 'window.EXTRA_RACES' "$DEPLOY_DIR/extra-races.js"; then
-  write_status "ERROR" "extra-races.js is present but does not expose window.EXTRA_RACES." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 25
+# Keep one rollback copy before replacing the live static files.
+BACKUP_DIR="$DEPLOY_DIR/.deploy-backup"
+mkdir -p "$BACKUP_DIR"
+for file in index.html app.html extra-races.js feasibility.js; do
+  if [[ -f "$DEPLOY_DIR/$file" ]]; then
+    cp "$DEPLOY_DIR/$file" "$BACKUP_DIR/$file.previous" || true
+  fi
+done
+
+echo "Copying current GitHub checkout into live HUB directory ..."
+install -m 0644 "$SOURCE_DIR/index.html" "$DEPLOY_DIR/index.html"
+install -m 0644 "$SOURCE_DIR/app.html" "$DEPLOY_DIR/app.html"
+install -m 0644 "$SOURCE_DIR/extra-races.js" "$DEPLOY_DIR/extra-races.js"
+if [[ -f "$SOURCE_DIR/feasibility.js" ]]; then
+  install -m 0644 "$SOURCE_DIR/feasibility.js" "$DEPLOY_DIR/feasibility.js"
 fi
 
-# The race site is static: no container restart should be required.
-# Verify the exact content being served by the NAS after the checkout update.
+# Verify the live files on disk first.
+grep -q "HUB_BUILD='2026.10.12-2350'" "$DEPLOY_DIR/app.html"
+grep -q "applyStructuredRaceFilters" "$DEPLOY_DIR/app.html"
+grep -q "window.EXTRA_RACES" "$DEPLOY_DIR/extra-races.js"
+
+# Then verify the files actually served by the NAS.
 sleep 2
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/" -o "$TMPDIR_LOCAL/served-index.html"
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/served-app.html"
+curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/extra-races.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/served-extra.js"
 
-TMPDIR_LOCAL="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR_LOCAL"' EXIT
+grep -q "Calendario Gare" "$TMPDIR_LOCAL/served-index.html"
+grep -q "HUB_BUILD='2026.10.12-2350'" "$TMPDIR_LOCAL/served-app.html"
+grep -q "applyStructuredRaceFilters" "$TMPDIR_LOCAL/served-app.html"
+grep -q "window.EXTRA_RACES" "$TMPDIR_LOCAL/served-extra.js"
 
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/" -o "$TMPDIR_LOCAL/index.html"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html" -o "$TMPDIR_LOCAL/app.html"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/extra-races.js" -o "$TMPDIR_LOCAL/extra-races.js"
-
-if ! grep -q 'Calendario Gare' "$TMPDIR_LOCAL/index.html"; then
-  write_status "ERROR" "NAS port $PORT answered, but the expected Calendario Gare page was not served." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 26
-fi
-if ! grep -q 'loadExtraRaces' "$TMPDIR_LOCAL/app.html"; then
-  write_status "ERROR" "NAS is serving a stale app.html without the current HUB loader." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 27
-fi
-if ! grep -q 'baseFilterState' "$TMPDIR_LOCAL/app.html"; then
-  write_status "ERROR" "NAS is serving a stale app.html without the current filter fix." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 28
-fi
-if ! grep -q 'window.EXTRA_RACES' "$TMPDIR_LOCAL/extra-races.js"; then
-  write_status "ERROR" "NAS is serving an invalid or stale extra-races.js." "$DEPLOYED_SHA" "$DEPLOY_DIR"
-  exit 29
+# Confirm the expected dataset volume is really present in the live response.
+RACE_COUNT="$(grep -o 'id:' "$TMPDIR_LOCAL/served-extra.js" | wc -l | tr -d ' ')"
+if [[ "$RACE_COUNT" -lt 50 ]]; then
+  write_status "ERROR" "HUB served extra-races.js, but only $RACE_COUNT race IDs were detected." "$EXPECTED_SHA" "$DEPLOY_DIR"
+  exit 22
 fi
 
-write_status "OK" "GitHub checkout updated and NAS port $PORT is serving the expected HUB files." "$DEPLOYED_SHA" "$DEPLOY_DIR"
+write_status "OK" "Deployed GitHub commit to the exact NAS HUB directory and verified files served on port $PORT. Race IDs detected: $RACE_COUNT." "$EXPECTED_SHA" "$DEPLOY_DIR"
 
 echo "DEPLOY_OK"
 cat "$STATUS_ROOT"
