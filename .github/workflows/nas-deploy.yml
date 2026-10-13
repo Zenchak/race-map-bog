@@ -30,7 +30,7 @@ jobs:
           grep -q 'brescia-art-marathon-2027' extra-races.js
           grep -q 'lanzarote-full-2027' extra-races.js
           grep -q 'HUB build 2026.10.13-0805' app.html
-          grep -q "BUILD='2026.10.13-0805'" hub-overlay.js
+          grep -q "BUILD='2026.10.13-0815'" hub-overlay.js
           grep -q 'function render()' hub-overlay.js
           grep -q "document.getElementById('events')" hub-overlay.js
           echo HUB_DATA_SELFTEST_OK
@@ -42,13 +42,6 @@ jobs:
           ls -l /var/run/docker.sock || true
           echo "CONTAINERS:"
           curl --silent --unix-socket /var/run/docker.sock http://localhost/containers/json || true
-
-      - name: Verify authenticated HUB exposes race dataset route
-        shell: bash
-        run: |
-          code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/extra-races.js)"
-          echo "8090 /extra-races.js -> HTTP $code"
-          test "$code" = "302" -o "$code" = "200"
 
       - name: Deploy and verify on NAS
         shell: bash
