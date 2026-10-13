@@ -63,3 +63,5 @@ The deployment workflow only runs on pushes to `main` or manual dispatch; it doe
 
 
 Runner connection note: after a Synology runner reconnect, the next push retriggers deployment and live verification.
+
+Runner volume mount verified: /sites -> bogdan-sites_sites_data.
