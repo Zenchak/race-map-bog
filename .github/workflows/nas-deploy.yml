@@ -29,8 +29,10 @@ jobs:
           grep -q 'como-lake-half-2026' extra-races.js
           grep -q 'brescia-art-marathon-2027' extra-races.js
           grep -q 'lanzarote-full-2027' extra-races.js
-          grep -q '<script src="./extra-races.js"></script>' app.html
-          grep -q 'applyStructuredRaceFilters' app.html
+          grep -q 'HUB build 2026.10.13-0805' app.html
+          grep -q 'HUB 2026.10.13-0805' hub-overlay.js
+          grep -q 'function render()' hub-overlay.js
+          grep -q "document.getElementById('events')" hub-overlay.js
           echo HUB_DATA_SELFTEST_OK
 
       - name: Show NAS container metadata
