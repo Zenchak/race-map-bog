@@ -19,6 +19,14 @@ jobs:
       - name: Checkout deployment scripts
         uses: actions/checkout@v4
 
+      - name: Show NAS container metadata
+        shell: bash
+        run: |
+          echo "SOCKET:"
+          ls -l /var/run/docker.sock || true
+          echo "CONTAINERS:"
+          curl --silent --unix-socket /var/run/docker.sock http://localhost/containers/json || true
+
       - name: Deploy and verify on NAS
         shell: bash
         run: bash scripts/nas-deploy.sh "${{ github.sha }}"
