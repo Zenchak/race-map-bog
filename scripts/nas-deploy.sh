@@ -66,7 +66,7 @@ fi
 grep -q "HUB build 2026.10.13-0805" "$LIVE_DIR/app.html"
 grep -q "window.EXTRA_RACES" "$LIVE_DIR/extra-races.js"
 grep -q "hub-overlay.js" "$LIVE_DIR/legacy/index.html"
-grep -q "HUB 2026.10.13-0805" "$LIVE_DIR/legacy/hub-overlay.js"
+grep -q "BUILD='2026.10.13-0805'" "$LIVE_DIR/legacy/hub-overlay.js"
 
 TMPDIR_LOCAL="$(mktemp -d)"
 sleep 2
@@ -80,7 +80,7 @@ grep -q "Calendario Gare" "$TMPDIR_LOCAL/index.html"
 grep -q "HUB build 2026.10.13-0805" "$TMPDIR_LOCAL/app.html"
 grep -q "window.EXTRA_RACES" "$TMPDIR_LOCAL/extra-races.js"
 grep -q "hub-overlay.js" "$TMPDIR_LOCAL/legacy-index.html"
-grep -q "HUB 2026.10.13-0805" "$TMPDIR_LOCAL/hub-overlay.js"
+grep -q "BUILD='2026.10.13-0805'" "$TMPDIR_LOCAL/hub-overlay.js"
 
 RACE_COUNT="$(grep -oE '"?id"?[[:space:]]*:' "$TMPDIR_LOCAL/extra-races.js" | wc -l | tr -d ' ')"
 [[ "$RACE_COUNT" -ge 50 ]] || {
