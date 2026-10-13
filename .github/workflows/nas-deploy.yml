@@ -43,6 +43,13 @@ jobs:
           echo "CONTAINERS:"
           curl --silent --unix-socket /var/run/docker.sock http://localhost/containers/json || true
 
+      - name: Verify authenticated HUB exposes race dataset route
+        shell: bash
+        run: |
+          code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/extra-races.js)"
+          echo "8090 /extra-races.js -> HTTP $code"
+          test "$code" = "302" -o "$code" = "200"
+
       - name: Deploy and verify on NAS
         shell: bash
         run: bash scripts/nas-deploy.sh "${{ github.sha }}"
