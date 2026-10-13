@@ -45,6 +45,17 @@ jobs:
         shell: bash
         run: bash scripts/nas-deploy.sh "${{ github.sha }}"
 
+      - name: Diagnose legacy HUB DOM
+        if: always()
+        shell: bash
+        run: |
+          echo "=== legacy files ==="
+          ls -la /sites/race-map-bog/legacy | head -40 || true
+          echo "=== Gare visibili context ==="
+          grep -n -C 8 "Gare visibili" /sites/race-map-bog/legacy/index.html || true
+          echo "=== aside/main tags ==="
+          grep -nE "<(aside|main)|id=|class=" /sites/race-map-bog/legacy/index.html | head -120 || true
+
       - name: Show NAS deployment status
         if: always()
         shell: bash
