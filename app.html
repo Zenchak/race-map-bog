@@ -22,7 +22,7 @@ const local='/legacy/index.html';
 const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
 const frame=document.getElementById('raceFrame');
 const label=document.getElementById('sourceLabel');
-const HUB_BUILD='2026.10.13-0700';
+const HUB_BUILD='2026.10.13-0748';
 let extraRaces=Array.isArray(window.EXTRA_RACES)?window.EXTRA_RACES:[];
 
 function loadExtraRaces(){
@@ -32,59 +32,20 @@ function loadExtraRaces(){
 }
 
 function ensureExtraRaces(doc){
-  if(!extraRaces.length||doc.getElementById('bogdan-extra-races'))return;
-
-  if(!doc.getElementById('bogdan-extra-races-style')){
-    const st=doc.createElement('style');
-    st.id='bogdan-extra-races-style';
-    st.textContent=`
-      .bogdan-extra-races{padding:0;margin:0;background:#fff}
-      .bogdan-extra-title{padding:10px 12px 8px;font-size:12px;font-weight:850;color:#41566a;border-bottom:1px solid #e2e8ef;background:#f8fbff}
-      .bogdan-extra-card{padding:11px 12px;border-bottom:1px solid #e2e8ef;background:#fff}
-      .bogdan-extra-name{font-size:13px;font-weight:800;color:#182b3e;line-height:1.3}
-      .bogdan-extra-meta{font-size:11px;color:#66798a;margin-top:4px;line-height:1.35}
-      .bogdan-extra-badge{display:inline-block;margin-top:6px;font-size:9.5px;font-weight:800;background:#eaf5ff;color:#1769aa;padding:4px 7px;border-radius:999px}
-      .bogdan-extra-note{font-size:11px;line-height:1.4;color:#45596c;margin-top:6px}
-      .bogdan-extra-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-      .bogdan-extra-actions a{display:inline-block;text-decoration:none;padding:6px 8px;border-radius:8px;font-size:10px;font-weight:800;background:#0d2f4d;color:#fff}
-      .bogdan-extra-actions a.secondary{background:#eef4f8;color:#24445f}
-      @media(max-width:800px){.bogdan-extra-card{padding:10px}.bogdan-extra-name{font-size:12px}}
-    `;
-    doc.head.appendChild(st);
-  }
-
-  const sec=doc.createElement('section');
-  sec.id='bogdan-extra-races';
-  sec.className='bogdan-extra-races';
-  sec.innerHTML='<div class="bogdan-extra-title">Gare HUB aggiunte</div>';
-
-  for(const r of extraRaces){
-    const c=doc.createElement('div');
-    c.className='bogdan-extra-card';
-    c.dataset.raceId=r.id||'';
-    c.dataset.raceDate=r.date||'';
-    c.dataset.raceMeta=[r.name,r.distance,r.discipline,r.location,r.status].filter(Boolean).join(' ');
-    const d=r.date?new Date(r.date+'T12:00:00'):null;
-    const data=d&&!Number.isNaN(d.getTime())?d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}):'Data da confermare';
-    c.innerHTML='<div class="bogdan-extra-name"></div><div class="bogdan-extra-meta"></div><span class="bogdan-extra-badge"></span><div class="bogdan-extra-note"></div><div class="bogdan-extra-actions"><a class="official" target="_blank" rel="noopener">Dettagli</a><a class="secondary map" target="_blank" rel="noopener">Mappa</a></div>';
-    c.querySelector('.bogdan-extra-name').textContent=r.name||'Gara';
-    c.querySelector('.bogdan-extra-meta').textContent=[data,r.distance,r.location].filter(Boolean).join(' · ');
-    c.querySelector('.bogdan-extra-badge').textContent=r.status||'Candidata';
-    c.querySelector('.bogdan-extra-note').textContent=r.note||'';
-    c.querySelector('.official').href=r.url||'#';
-    c.querySelector('.map').href=r.mapUrl||r.url||'#';
-    sec.appendChild(c);
-  }
-
-  const aside=doc.querySelector('aside');
-  if(aside){
-    const head=aside.querySelector('.aside-head');
-    if(head&&head.nextSibling)aside.insertBefore(sec,head.nextSibling);
-    else aside.appendChild(sec);
-  }else{
-    const host=doc.querySelector('main')||doc.body;
-    host.insertBefore(sec,host.firstChild);
-  }
+  if(doc.getElementById('bogdan-extra-races-style'))return;
+  const st=doc.createElement('style');
+  st.id='bogdan-extra-races-style';
+  st.textContent=`
+    #events .bogdan-structured-event{padding:12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--card)}
+    #events .bogdan-structured-event:hover{background:var(--accent-soft)}
+    #events .bogdan-structured-title{font-weight:700;line-height:1.25}
+    #events .bogdan-structured-meta{margin-top:5px;font-size:13px;color:var(--muted);line-height:1.4}
+    #events .bogdan-structured-badge{display:inline-block;margin-top:7px;padding:3px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}
+    #events .bogdan-structured-note{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.35}
+    #events .bogdan-structured-links{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    #events .bogdan-structured-links a{display:inline-block;text-decoration:none;padding:6px 8px;border-radius:8px;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent)}
+  `;
+  doc.head.appendChild(st);
 }
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 const MONTHS={gennaio:0,gen:0,febbraio:1,feb:1,marzo:2,mar:2,aprile:3,apr:3,maggio:4,mag:4,giugno:5,giu:5,luglio:6,lug:6,agosto:7,ago:7,settembre:8,set:8,ottobre:9,ott:9,novembre:10,nov:10,dicembre:11,dic:11};
@@ -281,7 +242,7 @@ function raceCandidates(doc){
     if(best)found.add(best);
   }
 
-  doc.querySelectorAll('.bogdan-extra-card').forEach(x=>found.add(x));
+  
 
   const arr=[...found];
   return arr.filter(x=>!arr.some(y=>y!==x&&x.contains(y)));
@@ -385,27 +346,80 @@ function structuredRaceMatches(r,state){
 }
 
 function applyStructuredRaceFilters(doc,state){
-  const cards=[...doc.querySelectorAll('.bogdan-extra-card')];
-  if(!extraRaces.length){
-    updateVisibleCount(doc,0);
-    const title=doc.querySelector('#bogdan-extra-races .bogdan-extra-title');
-    if(title)title.textContent='ERRORE: dataset HUB non caricato';
-    return null;
-  }
-  if(!cards.length)return null;
+  const list=doc.getElementById('events');
+  if(!list||!extraRaces.length)return null;
 
-  const byId=new Map(extraRaces.map(r=>[String(r.id||''),r]));
-  let visible=0;
-  for(const card of cards){
-    const r=byId.get(String(card.dataset.raceId||''));
-    const show=!!r&&structuredRaceMatches(r,state);
-    card.classList.toggle('bogdan-type-hidden',!show);
-    if(show)visible++;
+  const visible=extraRaces
+    .filter(r=>structuredRaceMatches(r,state))
+    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+
+  list.innerHTML='';
+
+  if(!visible.length){
+    const empty=doc.createElement('div');
+    empty.className='empty';
+    empty.textContent='Nessuna gara con questi filtri.';
+    list.appendChild(empty);
+  }else{
+    for(const r of visible){
+      const card=doc.createElement('div');
+      card.className='bogdan-structured-event';
+      card.dataset.raceId=r.id||'';
+
+      const title=doc.createElement('div');
+      title.className='bogdan-structured-title';
+      title.textContent=r.name||'Gara';
+
+      const meta=doc.createElement('div');
+      meta.className='bogdan-structured-meta';
+      const dt=r.date?new Date(r.date+'T12:00:00'):null;
+      const dateText=dt&&!Number.isNaN(dt.getTime())
+        ?dt.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})
+        :'Data da confermare';
+      meta.textContent=[dateText,r.distance,r.location].filter(Boolean).join(' · ');
+
+      const badge=doc.createElement('span');
+      badge.className='bogdan-structured-badge';
+      badge.textContent=r.discipline||r.status||'Gara';
+
+      card.appendChild(title);
+      card.appendChild(meta);
+      card.appendChild(badge);
+
+      if(r.note){
+        const note=doc.createElement('div');
+        note.className='bogdan-structured-note';
+        note.textContent=r.note;
+        card.appendChild(note);
+      }
+
+      if(r.url||r.mapUrl){
+        const links=doc.createElement('div');
+        links.className='bogdan-structured-links';
+        if(r.url){
+          const a=doc.createElement('a');
+          a.href=r.url;
+          a.target='_blank';
+          a.rel='noopener';
+          a.textContent='Dettagli';
+          links.appendChild(a);
+        }
+        if(r.mapUrl){
+          const a=doc.createElement('a');
+          a.href=r.mapUrl;
+          a.target='_blank';
+          a.rel='noopener';
+          a.textContent='Mappa';
+          links.appendChild(a);
+        }
+        card.appendChild(links);
+      }
+
+      list.appendChild(card);
+    }
   }
 
-  const title=doc.querySelector('#bogdan-extra-races .bogdan-extra-title');
-  if(title)title.textContent='Gare HUB · '+visible+' visibili';
-  return visible;
+  return visible.length;
 }
 
 function updateVisibleCount(doc,visible){
@@ -687,7 +701,7 @@ function process(){try{
 }catch(e){console.warn('Filtri gare non applicabili',e)}}
 function activate(){process();try{const doc=frame.contentDocument;if(!doc||!doc.body)return;const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(process,120)});obs.observe(doc.body,{childList:true,subtree:true})}catch(e){}}
 loadExtraRaces().then(()=>{try{process()}catch{}});
-frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · HUB build '+HUB_BUILD+' · '+extraRaces.length+' gare · filtri verificati'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
+frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · HUB build '+HUB_BUILD+' · dataset '+extraRaces.length+' gare · lista HUB attiva'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
 })();
 </script>
 </body>
