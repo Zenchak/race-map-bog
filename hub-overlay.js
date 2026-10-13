@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const BUILD='2026.10.13-0805';
+const BUILD='2026.10.13-0815';
 const state={types:new Set(),races:[]};
 
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
@@ -211,7 +211,7 @@ function loadData(){
   return new Promise(resolve=>{
     if(Array.isArray(window.EXTRA_RACES)&&window.EXTRA_RACES.length){resolve(window.EXTRA_RACES);return;}
     const sc=document.createElement('script');
-    sc.src='/extra-races.js?hub='+Date.now();
+    sc.src='/legacy/extra-races.js?hub='+Date.now();
     sc.onload=()=>resolve(Array.isArray(window.EXTRA_RACES)?window.EXTRA_RACES:[]);
     sc.onerror=()=>resolve([]);
     document.head.appendChild(sc);
