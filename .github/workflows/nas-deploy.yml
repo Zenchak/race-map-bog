@@ -19,6 +19,10 @@ jobs:
       - name: Checkout deployment scripts
         uses: actions/checkout@v4
 
+      - name: Test HUB filters and dataset
+        shell: bash
+        run: node scripts/test-hub-data.js
+
       - name: Show NAS container metadata
         shell: bash
         run: |
