@@ -15,24 +15,20 @@
 <body>
 <div class="nav"><div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub" id="sourceLabel">Carico la copia locale…</div></div><button class="refresh" type="button" onclick="location.reload()">↻ Refresh</button></div>
 <iframe id="raceFrame" title="Mappa delle gare"></iframe>
+<script src="./extra-races.js"></script>
 <script>
 (()=>{
 const local='/legacy/index.html';
 const backup='https://6a9fda04e5e971aba29f9a03--illustrious-cupcake-c1bcb0.netlify.app/';
 const frame=document.getElementById('raceFrame');
 const label=document.getElementById('sourceLabel');
-const HUB_BUILD='2026.10.12-2350';
-let extraRaces=window.EXTRA_RACES||[];
+const HUB_BUILD='2026.10.13-0700';
+let extraRaces=Array.isArray(window.EXTRA_RACES)?window.EXTRA_RACES:[];
 
 function loadExtraRaces(){
-  if(extraRaces.length)return Promise.resolve(extraRaces);
-  return new Promise(resolve=>{
-    const sc=document.createElement('script');
-    sc.src='/extra-races.js?ts='+Date.now();
-    sc.onload=()=>{extraRaces=window.EXTRA_RACES||[];resolve(extraRaces)};
-    sc.onerror=()=>resolve([]);
-    document.head.appendChild(sc);
-  });
+  extraRaces=Array.isArray(window.EXTRA_RACES)?window.EXTRA_RACES:[];
+  label.textContent='Dataset HUB: '+extraRaces.length+' gare · caricamento mappa…';
+  return Promise.resolve(extraRaces);
 }
 
 function ensureExtraRaces(doc){
@@ -390,7 +386,13 @@ function structuredRaceMatches(r,state){
 
 function applyStructuredRaceFilters(doc,state){
   const cards=[...doc.querySelectorAll('.bogdan-extra-card')];
-  if(!cards.length||!extraRaces.length)return null;
+  if(!extraRaces.length){
+    updateVisibleCount(doc,0);
+    const title=doc.querySelector('#bogdan-extra-races .bogdan-extra-title');
+    if(title)title.textContent='ERRORE: dataset HUB non caricato';
+    return null;
+  }
+  if(!cards.length)return null;
 
   const byId=new Map(extraRaces.map(r=>[String(r.id||''),r]));
   let visible=0;
@@ -685,7 +687,7 @@ function process(){try{
 }catch(e){console.warn('Filtri gare non applicabili',e)}}
 function activate(){process();try{const doc=frame.contentDocument;if(!doc||!doc.body)return;const obs=new MutationObserver(()=>{clearTimeout(window.__raceProcessTimer);window.__raceProcessTimer=setTimeout(process,120)});obs.observe(doc.body,{childList:true,subtree:true})}catch(e){}}
 loadExtraRaces().then(()=>{try{process()}catch{}});
-frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · HUB build '+HUB_BUILD+' · filtri verificati'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
+frame.addEventListener('load',()=>setTimeout(activate,150));fetch(local,{method:'HEAD',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);frame.src=local;label.textContent='Copia locale sul NAS · HUB build '+HUB_BUILD+' · '+extraRaces.length+' gare · filtri verificati'}).catch(()=>{frame.src=backup;label.textContent='Backup Netlify · filtro avanzato non disponibile'});
 })();
 </script>
 </body>
