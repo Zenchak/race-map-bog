@@ -69,7 +69,7 @@ grep -q "HUB_BUILD='2026.10.12-2350'" "$TMPDIR_LOCAL/app.html"
 grep -q "applyStructuredRaceFilters" "$TMPDIR_LOCAL/app.html"
 grep -q "window.EXTRA_RACES" "$TMPDIR_LOCAL/extra-races.js"
 
-RACE_COUNT="$(grep -o 'id:' "$TMPDIR_LOCAL/extra-races.js" | wc -l | tr -d ' ')"
+RACE_COUNT="$(grep -oE '"?id"?[[:space:]]*:' "$TMPDIR_LOCAL/extra-races.js" | wc -l | tr -d ' ')"
 [[ "$RACE_COUNT" -ge 50 ]] || {
   write_status "ERROR" "Live HUB returned only $RACE_COUNT race IDs." "$EXPECTED_SHA" "$LIVE_DIR"
   exit 23
