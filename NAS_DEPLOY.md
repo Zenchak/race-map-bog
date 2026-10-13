@@ -60,3 +60,6 @@ For reboot persistence, add a DSM Task Scheduler **Boot-up** task running:
 ```
 
 The deployment workflow only runs on pushes to `main` or manual dispatch; it does not run on pull requests.
+
+
+Runner connection note: after a Synology runner reconnect, the next push retriggers deployment and live verification.
