@@ -10,37 +10,28 @@
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#fff}
 .nav{height:58px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#112b45,#081626);border-bottom:1px solid var(--line);color:var(--text);box-shadow:0 5px 18px rgba(0,0,0,.2);position:relative;z-index:2}
 .brand{min-width:0}.title{font-size:14px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:10px;color:var(--muted);margin-top:2px}
-.hub-actions{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:5px;border:1px solid #dbe2ee;border-radius:22px;background:rgba(255,255,255,.96);box-shadow:0 12px 32px rgba(16,24,40,.22);z-index:9999;white-space:nowrap}.hub-actions button,.hub-actions a{border:0;border-radius:17px;padding:12px 17px;font:800 15px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;text-decoration:none;cursor:pointer}.hub-actions button{color:white;background:#7638f4}.hub-actions a{color:white;background:#ff9828}
+.hub-floating-actions{position:fixed;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));z-index:2147483646;display:flex;gap:6px;padding:4px;border:1px solid #e0e8f5;border-radius:18px;background:rgba(255,255,255,.94);box-shadow:0 10px 28px rgba(25,52,92,.17);backdrop-filter:blur(14px)}
+.hub-floating-action{appearance:none;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:10px;width:96px;min-height:36px;padding:6px 9px;border:0;border-radius:14px;color:#fff!important;text-decoration:none!important;font:750 12px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;white-space:nowrap;cursor:pointer}
+.hub-floating-action[data-hub-refresh]{background:linear-gradient(145deg,#8a4dff,#6733df);border:1px solid #7439ec;box-shadow:0 5px 14px rgba(104,51,223,.30)}
+.hub-floating-action[data-hub-home]{background:linear-gradient(145deg,#ffc349,#ff821c);box-shadow:0 5px 12px rgba(255,130,28,.24)}
+.hub-floating-action svg{display:block;width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.hub-floating-action:active{transform:scale(.93);filter:brightness(.84)}
+
 iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#fff}
-@media(max-width:480px){.nav{height:54px;padding:7px 9px}.title{font-size:16px}.sub{font-size:9px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}.hub-actions button,.hub-actions a{padding:11px 15px;font-size:14px}iframe{height:calc(100% - 54px)}}
+@media(max-width:480px){.nav{height:54px;padding:7px 9px}.title{font-size:16px}.sub{font-size:9px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}iframe{height:calc(100% - 54px)}}
 </style>
 </head>
 <body>
 <div class="nav"><div class="brand"><div class="title">🗺️ Calendario Gare</div><div class="sub">HUB build 2026.10.13-0805 · lista diretta dal dataset</div></div></div>
 <iframe id="raceFrame" title="Mappa delle gare" src="/legacy/index.html?hub=202610130805"></iframe>
-<div class="hub-actions"><button type="button" onclick="document.getElementById('raceFrame').src='/legacy/index.html?hub='+Date.now()">⟳ Refresh</button><a href="/">⌂ Home</a></div>
+<div class="hub-floating-actions" role="group" aria-label="Comandi rapidi"><button type="button" class="hub-floating-action" data-hub-refresh onclick="document.getElementById('raceFrame').src='/legacy/index.html?hub='+Date.now()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.4 6"/><path d="M20 4v7h-7"/></svg><span>Refresh</span></button><a class="hub-floating-action" data-hub-home href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/></svg><span>Home</span></a></div>
 <script>
 (function(){
  const frame=document.getElementById('raceFrame');
  function adjust(){
   try{
    const d=frame.contentDocument;if(!d||!d.body)return;
-   if(!d.getElementById('hub-race-cleanup')){
-    const st=d.createElement('style');st.id='hub-race-cleanup';
-    st.textContent='input[placeholder*="Gara o localit"],input[placeholder*="gara o localit"]{display:none!important}';
-    d.head.appendChild(st);
-   }
-   const inputs=[...d.querySelectorAll('input')].filter(el=>/gara o localit/i.test(el.placeholder||''));
-   inputs.forEach(el=>{
-    let wrap=el.closest('label')||el.parentElement;
-    for(let i=0;i<3&&wrap&&wrap.parentElement;i++){
-      const txt=(wrap.textContent||'').trim();
-      if(/^(cerca\s*)?$/i.test(txt)||wrap.querySelectorAll('input').length===1&&txt.length<25)wrap=wrap.parentElement;else break;
-    }
-    if(wrap&&wrap!==d.body&&wrap.querySelectorAll('input').length===1)wrap.style.display='none';
-    else el.style.display='none';
-   });
-   [...d.querySelectorAll('a,button')].filter(el=>/^\s*(🏠\s*)?home\s*$/i.test(el.textContent||'')).forEach(el=>el.style.display='none');
+   [...d.querySelectorAll('a,button')].filter(el=>/^\s*(🏠\s*)?home\s*$/i.test(el.textContent||'')).forEach(el=>{const box=el.closest('.leaflet-control')||el;box.style.display='none'});
   }catch(e){console.warn('Pulizia calendario non disponibile',e)}
  }
  frame.addEventListener('load',()=>{adjust();setTimeout(adjust,500);setTimeout(adjust,1600)});
