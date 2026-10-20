@@ -31,7 +31,30 @@ iframe{display:block;width:100%;height:calc(100% - 58px);border:0;background:#ff
  function adjust(){
   try{
    const d=frame.contentDocument;if(!d||!d.body)return;
-   [...d.querySelectorAll('a,button')].filter(el=>/^\s*(🏠\s*)?home\s*$/i.test(el.textContent||'')).forEach(el=>{const box=el.closest('.leaflet-control')||el;box.style.display='none'});
+   // Nascondi i vecchi pulsanti Home anche quando sono inseriti dopo il caricamento.
+   if(!d.getElementById('hub-hide-legacy-home')){
+    const style=d.createElement('style');style.id='hub-hide-legacy-home';
+    style.textContent='a[href="/"][style*="fixed"],a[href="../"][style*="fixed"],.home-floating,.floating-home,.home-btn-fixed{display:none!important}';
+    d.head.appendChild(style);
+   }
+   const removeOldHome=()=>{
+    [...d.querySelectorAll('a,button,[role="button"]')].forEach(el=>{
+     const label=(el.textContent||'').trim().replace(/\s+/g,' ').toLowerCase();
+     const aria=(el.getAttribute('aria-label')||'').toLowerCase();
+     const href=el.getAttribute('href')||'';
+     const isHome=/^(🏠\s*)?(home|⌂\s*home)$/i.test(label)||/^(home|torna alla home)$/i.test(aria);
+     if(!isHome)return;
+     if(el.closest('.leaflet-control')||el.closest('.hub-floating-actions'))return;
+     const fixed=[el,el.parentElement,el.parentElement?.parentElement].find(n=>n&&d.defaultView.getComputedStyle(n).position==='fixed');
+     if(fixed)fixed.style.setProperty('display','none','important');
+     else if(href==='/'||href==='../')el.style.setProperty('display','none','important');
+    });
+   };
+   removeOldHome();
+   if(!d.body.dataset.hubHomeObserver){
+    d.body.dataset.hubHomeObserver='1';
+    new MutationObserver(removeOldHome).observe(d.body,{childList:true,subtree:true});
+   }
   }catch(e){console.warn('Pulizia calendario non disponibile',e)}
  }
  frame.addEventListener('load',()=>{adjust();setTimeout(adjust,500);setTimeout(adjust,1600)});
