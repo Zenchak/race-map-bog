@@ -71,12 +71,20 @@ grep -q "BUILD='2026.10.13-0815'" "$LIVE_DIR/legacy/hub-overlay.js"
 
 TMPDIR_LOCAL="$(mktemp -d)"
 sleep 2
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/" -o "$TMPDIR_LOCAL/index.html"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/app.html"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/extra-races.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/extra-races.js"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/index.html?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/legacy-index.html"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/hub-overlay.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/hub-overlay.js"
-curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/extra-races.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/legacy-extra-races.js"
+# The ports are now session-protected, so smoke-test only the public, nonsensitive
+# health endpoint. During nginx's automatic reload, temporarily fall back to the
+# old /app.html endpoint for availability (never for private content validation).
+if ! curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/healthz" -o "$TMPDIR_LOCAL/healthz"; then
+  curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/app.html" -o "$TMPDIR_LOCAL/healthz"
+fi
+# The deployed files themselves are validated from the Docker-mounted NAS volume:
+# no unauthenticated HTTP access to private pages is needed.
+cp "$LIVE_DIR/index.html" "$TMPDIR_LOCAL/index.html"
+cp "$LIVE_DIR/app.html" "$TMPDIR_LOCAL/app.html"
+cp "$LIVE_DIR/extra-races.js" "$TMPDIR_LOCAL/extra-races.js"
+cp "$LIVE_DIR/legacy/index.html" "$TMPDIR_LOCAL/legacy-index.html"
+cp "$LIVE_DIR/legacy/hub-overlay.js" "$TMPDIR_LOCAL/hub-overlay.js"
+cp "$LIVE_DIR/legacy/extra-races.js" "$TMPDIR_LOCAL/legacy-extra-races.js"
 
 grep -q "Calendario Gare" "$TMPDIR_LOCAL/index.html"
 grep -q 'id="calendar-view"' "$TMPDIR_LOCAL/app.html"
@@ -91,6 +99,6 @@ RACE_COUNT="$(grep -oE '"?id"?[[:space:]]*:' "$TMPDIR_LOCAL/extra-races.js" | wc
   exit 23
 }
 
-write_status "OK" "Deployed exact GitHub commit into /sites/race-map-bog and verified live HTTP on port $PORT. Race IDs: $RACE_COUNT." "$EXPECTED_SHA" "$LIVE_DIR"
+write_status "OK" "Deployed exact GitHub commit; verified static files and service health (authenticated content stays protected) on port $PORT. Race IDs: $RACE_COUNT." "$EXPECTED_SHA" "$LIVE_DIR"
 echo "DEPLOY_OK"
 cat "$STATUS_ROOT"
