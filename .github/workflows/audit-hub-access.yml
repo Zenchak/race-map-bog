@@ -1,0 +1,49 @@
+name: Audit accessi NAS
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-hub-access.yml']
+  workflow_dispatch:
+jobs:
+  check:
+    name: Verifica che le porte non servano dati senza sessione
+    runs-on: [self-hosted, linux, x64, synology]
+    timeout-minutes: 5
+    steps:
+      - name: Prova accessi anonimi alle porte interne
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..18}; do
+            c1="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/ || true)"
+            c2="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8082/app.html || true)"
+            c3="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8083/api/notes || true)"
+            echo "Senza cookie: training=$c1 gare=$c2 casa-notes=$c3"
+            if [[ "$c1" == 401 && "$c2" == 401 && "$c3" == 401 ]]; then
+              echo "ACCESSO_ANONIMO_BLOCCATO_SU_TUTTE_LE_PORTE"
+              break
+            fi
+            if [[ "$i" -eq 18 ]]; then echo "FAIL: port protection not loaded"; exit 1; fi
+            sleep 6
+          done
+          for port in 8081 8082 8083; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$port/healthz")"
+            [[ "$code" == 200 ]] || { echo "Health check fallito su $port ($code)"; exit 1; }
+          done
+          echo "HEALTHCHECK_PORTS_OK"
+      - name: Prova accessi diretti e vecchio bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          if curl --silent --max-time 5 -o /dev/null 'http://127.0.0.1:8090/'; then
+            for route in /training/ /gare/ /finanze/ /finanze-data.json /finance.html; do
+              code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:8090$route")"
+              echo "$route => $code"
+              [[ "$code" == 302 ]] || { echo "FAIL: $route not protected"; exit 1; }
+            done
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H 'X-Auth-Fallback: 1' -H 'X-Auth-User: Bogdan' http://127.0.0.1:8090/auth/bootstrap)"
+            echo "Header spoof /auth/bootstrap => $code"
+            [[ "$code" == 404 ]] || { echo "FAIL: legacy bootstrap available"; exit 1; }
+          else
+            echo "8090 locale non raggiungibile dal runner: verifiche 8090 non eseguite"
+          fi
