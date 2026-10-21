@@ -64,7 +64,7 @@ else
   sed -i 's#hub-overlay.js[^"]*#hub-overlay.js?build=202610130815#g' "$LIVE_DIR/legacy/index.html"
 fi
 
-grep -q "HUB build 2026.10.13-0805" "$LIVE_DIR/app.html"
+grep -q 'id="calendar-view"' "$LIVE_DIR/app.html"
 grep -q "window.EXTRA_RACES" "$LIVE_DIR/extra-races.js"
 grep -q "hub-overlay.js" "$LIVE_DIR/legacy/index.html"
 grep -q "BUILD='2026.10.13-0815'" "$LIVE_DIR/legacy/hub-overlay.js"
@@ -79,7 +79,7 @@ curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/h
 curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$PORT/legacy/extra-races.js?deploy=$EXPECTED_SHA" -o "$TMPDIR_LOCAL/legacy-extra-races.js"
 
 grep -q "Calendario Gare" "$TMPDIR_LOCAL/index.html"
-grep -q "HUB build 2026.10.13-0805" "$TMPDIR_LOCAL/app.html"
+grep -q 'id="calendar-view"' "$TMPDIR_LOCAL/app.html"
 grep -q "window.EXTRA_RACES" "$TMPDIR_LOCAL/extra-races.js"
 grep -q "hub-overlay.js" "$TMPDIR_LOCAL/legacy-index.html"
 grep -q "BUILD='2026.10.13-0815'" "$TMPDIR_LOCAL/hub-overlay.js"

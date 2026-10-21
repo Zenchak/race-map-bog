@@ -29,7 +29,8 @@ jobs:
           grep -q 'como-lake-half-2026' extra-races.js
           grep -q 'brescia-art-marathon-2027' extra-races.js
           grep -q 'lanzarote-full-2027' extra-races.js
-          grep -q 'HUB build 2026.10.13-0805' app.html
+          grep -q 'id="calendar-view"' app.html
+          grep -q 'hub-map-only-style' app.html
           grep -q "BUILD='2026.10.13-0815'" hub-overlay.js
           grep -q 'function render()' hub-overlay.js
           grep -q "document.getElementById('events')" hub-overlay.js
