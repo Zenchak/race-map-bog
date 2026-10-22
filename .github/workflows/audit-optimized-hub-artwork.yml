@@ -1,0 +1,49 @@
+name: Audit immagini ottimizzate Hub
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-optimized-hub-artwork.yml']
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64, synology]
+    timeout-minutes: 6
+    steps:
+      - name: Verifica presenza e dimensione dei WebP sul NAS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,time
+          from pathlib import Path
+          root=Path("/sites/training-dashboard-bog/nas")
+          for attempt in range(25):
+              try:
+                  home=(root/"public-index.html").read_text()
+                  auto=(root/"auto/index.html").read_text()
+                  manager=(root/"media-manager.html").read_text()
+                  home_files=re.findall(r'data-default-src="(/assets/home/[^"]+[.]webp)"',home)
+                  car_files=list(dict.fromkeys(re.findall(r'/assets/car/[a-z_]+-[a-f0-9]{12}[.]webp',auto)))
+                  if len(home_files)==5 and len(car_files)==2 and all((root/p.lstrip("/")).is_file() for p in home_files+car_files) and all(f in manager for f in home_files+car_files):
+                      break
+              except (OSError, ValueError):
+                  pass
+              if attempt==24:
+                  raise SystemExit("NAS not yet synchronized with optimized images")
+              time.sleep(6)
+          sizes=[(p,(root/p.lstrip("/")).stat().st_size) for p in home_files+car_files]
+          for p,n in sizes: print(f"{p}: {n//1024} KiB")
+          assert sum(n for _,n in sizes[:5])<200_000,"Home icons unexpectedly large"
+          assert sum(n for _,n in sizes[5:])<750_000,"Car photos unexpectedly large"
+          assert "mix-blend-mode:normal!important" in auto
+          assert '.preview{background:transparent;' in manager
+          assert 'function boot(){apply(document);load()}' in (root/"media-client.js").read_text()
+          print("NAS_WEBP_SIZES_AND_REFS_OK")
+          PY
+      - name: Verifica che gli asset sul server richiedano sessione
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 http://127.0.0.1:8090/assets/home/allenamenti-09da96285aa7.webp)"
+          echo "Richiesta anonima WebP: HTTP $code"
+          [[ "$code" == 302 ]]
