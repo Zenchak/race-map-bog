@@ -62,6 +62,19 @@ jobs:
           grep -nE "<(aside|main)|id=|class=" /sites/race-map-bog/legacy/index.html | head -120 || true
 
 
+      - name: Refresh Hub media API after GitHub sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 24); do
+            if grep -q "profile-camilla" /sites/cerco-casa/icon-media.js && grep -q "profile-bogdan" /sites/cerco-casa/icon-media.js; then break; fi
+            sleep 5
+          done
+          test -S /var/run/docker.sock
+          code="$(curl --silent --show-error --max-time 15 --unix-socket /var/run/docker.sock -o /tmp/hub-restart-result -w '%{http_code}' -X POST http://localhost/containers/bogdan-sites-house-api/restart?t=5)"
+          echo "Hub media API restart: HTTP $code"
+          test "$code" = 204 || { cat /tmp/hub-restart-result; exit 1; }
+
       - name: Verify main Hub files on NAS (read only)
         if: always()
         shell: bash
