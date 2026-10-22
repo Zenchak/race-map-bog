@@ -13,33 +13,43 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import re,time
-          from pathlib import Path
-          root=Path("/sites/training-dashboard-bog/nas")
-          for attempt in range(25):
-              try:
-                  home=(root/"public-index.html").read_text()
-                  auto=(root/"auto/index.html").read_text()
-                  manager=(root/"media-manager.html").read_text()
-                  home_files=re.findall(r'data-default-src="(/assets/home/[^"]+[.]webp)"',home)
-                  car_files=list(dict.fromkeys(re.findall(r'/assets/car/[a-z_]+-[a-f0-9]{12}[.]webp',auto)))
-                  if len(home_files)==5 and len(car_files)==2 and all((root/p.lstrip("/")).is_file() for p in home_files+car_files) and all(f in manager for f in home_files+car_files):
-                      break
-              except (OSError, ValueError):
-                  pass
-              if attempt==24:
-                  raise SystemExit("NAS not yet synchronized with optimized images")
-              time.sleep(6)
-          sizes=[(p,(root/p.lstrip("/")).stat().st_size) for p in home_files+car_files]
-          for p,n in sizes: print(f"{p}: {n//1024} KiB")
-          assert sum(n for _,n in sizes[:5])<200_000,"Home icons unexpectedly large"
-          assert sum(n for _,n in sizes[5:])<750_000,"Car photos unexpectedly large"
-          assert "mix-blend-mode:normal!important" in auto
-          assert '.preview{background:transparent;' in manager
-          assert 'function boot(){apply(document);load()}' in (root/"media-client.js").read_text()
-          print("NAS_WEBP_SIZES_AND_REFS_OK")
-          PY
+          root=/sites/training-dashboard-bog/nas
+          ready=0
+          for attempt in $(seq 1 25); do
+            home_files="$(grep -oE 'data-default-src="/assets/home/[^"]+[.]webp"' "$root/public-index.html" 2>/dev/null | cut -d'"' -f2 || true)"
+            car_files="$(grep -oE '/assets/car/[a-z_]+-[a-f0-9]{12}[.]webp' "$root/auto/index.html" 2>/dev/null | sort -u || true)"
+            count_home="$(printf '%s\n' "$home_files" | grep -c '^/assets/home/' || true)"
+            count_car="$(printf '%s\n' "$car_files" | grep -c '^/assets/car/' || true)"
+            if [[ "$count_home" == 5 && "$count_car" == 2 ]]; then
+              ready=1
+              for asset in $home_files $car_files; do
+                [[ -s "$root$asset" ]] || ready=0
+                grep -Fq "$asset" "$root/media-manager.html" || ready=0
+              done
+              [[ "$ready" == 1 ]] && break
+            fi
+            sleep 6
+          done
+          [[ "$ready" == 1 ]] || { echo "Ottimizzazione non ancora sincronizzata sul NAS"; exit 1; }
+          total_home=0
+          total_cars=0
+          for asset in $home_files; do
+            bytes="$(wc -c < "$root$asset")"
+            total_home=$((total_home+bytes))
+            echo "$asset: $bytes bytes"
+          done
+          for asset in $car_files; do
+            bytes="$(wc -c < "$root$asset")"
+            total_cars=$((total_cars+bytes))
+            echo "$asset: $bytes bytes"
+          done
+          [[ "$total_home" -lt 200000 ]]
+          [[ "$total_cars" -lt 750000 ]]
+          grep -Fq 'mix-blend-mode:normal!important' "$root/auto/index.html"
+          grep -Fq '.preview{background:transparent;' "$root/media-manager.html"
+          grep -Fq 'function boot(){apply(document);load()}' "$root/media-client.js"
+          echo "NAS_WEBP_SIZES_AND_REFS_OK"
+
       - name: Verifica che gli asset sul server richiedano sessione
         shell: bash
         run: |
