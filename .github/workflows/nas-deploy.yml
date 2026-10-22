@@ -61,6 +61,26 @@ jobs:
           echo "=== aside/main tags ==="
           grep -nE "<(aside|main)|id=|class=" /sites/race-map-bog/legacy/index.html | head -120 || true
 
+
+      - name: Verify main Hub files on NAS (read only)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Checking shared /sites mount and Hub deployment"
+          test -d /sites/training-dashboard-bog/nas
+          test -s /sites/training-dashboard-bog/nas/public-index.html
+          test -s /sites/training-dashboard-bog/nas/auto/index.html
+          test -s /sites/training-dashboard-bog/nas/media-manager.html
+          grep -q 'profileAvatar' /sites/training-dashboard-bog/nas/public-index.html
+          grep -q 'hubRefresh' /sites/training-dashboard-bog/nas/public-index.html
+          grep -q 'profile-bogdan' /sites/training-dashboard-bog/nas/media-manager.html
+          grep -q 'profile-camilla' /sites/training-dashboard-bog/nas/media-manager.html
+          code="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/healthz)"
+          echo "Main Hub /healthz HTTP $code"
+          test "$code" = 200
+          echo "MAIN_HUB_NAS_VERIFIED"
+
       - name: Show NAS deployment status
         if: always()
         shell: bash
