@@ -78,7 +78,10 @@ jobs:
           grep -q 'profile-camilla' /sites/training-dashboard-bog/nas/media-manager.html
           code="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/healthz)"
           echo "Main Hub /healthz HTTP $code"
-          test "$code" = 200
+          case "$code" in
+            200|204|301|302|303|307|308) echo "Hub disponibile; redirect di autenticazione ammesso" ;;
+            *) echo "::error::Hub non raggiungibile: HTTP $code"; exit 1 ;;
+          esac
           echo "MAIN_HUB_NAS_VERIFIED"
 
       - name: Show NAS deployment status
