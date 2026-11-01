@@ -45,7 +45,8 @@ h1{margin-top:0}
 .tabs button:not(.active):hover{background:#edf4ff;border-color:#c8dcfc}
 .tabs button:focus-visible{outline:3px solid #95befd;outline-offset:2px}
 @media(max-width:420px){.tabs{gap:6px}.tabs button{gap:5px;padding:9px 4px;font-size:12px}.tabs button svg{height:16px;width:16px}}
-</style></head><body><main class="app"><h1>🏁 Calendario Gare</h1><p>Tutte le gare segnalate · mappa interattiva · filtri per anno, mese e disciplina</p><nav class="tabs" aria-label="Visualizzazione gare">
+.races-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.races-heading h1{margin:0}.races-nav{display:flex;align-items:center;gap:8px;flex-shrink:0}.race-nav-btn{display:inline-flex;align-items:center;justify-content:center;width:39px;height:39px;min-width:39px;padding:0;border-radius:50%;border:1px solid #dfe8f5;background:#fff;color:#2774e9;box-shadow:0 4px 12px #1b3c6812;cursor:pointer;text-decoration:none}.race-nav-btn svg{width:22px;height:22px}.race-nav-btn .zen-shared-nav-icon{width:26px!important;height:26px!important;max-width:26px!important;max-height:26px!important}@media(max-width:420px){.race-nav-btn{width:36px;height:36px;min-width:36px}}
+</style></head><body><main class="app"><div class="races-heading"><h1>🏁 Calendario Gare</h1><div class="races-nav"><a href="/" aria-label="Home" title="Home" class="race-nav-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/></svg></a><button type="button" aria-label="Refresh" title="Refresh" class="race-nav-btn" onclick="location.reload()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.4 5.7"/><path d="M20 4v7h-7"/></svg></button></div></div><p>Tutte le gare segnalate · mappa interattiva · filtri per anno, mese e disciplina</p><nav class="tabs" aria-label="Visualizzazione gare">
 <button class="active" data-view="list" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Lista</span></button>
 <button data-view="map" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/></svg><span>Mappa</span></button>
 <button data-view="calendar" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg><span>Calendario</span></button>
@@ -83,4 +84,4 @@ function cleanLegacyMap(){
 }
 mapFrame.addEventListener('load',cleanLegacyMap);
 $('map-search').addEventListener('input',e=>{try{const el=mapFrame.contentDocument.getElementById('search');if(!el)return;el.value=e.target.value;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}catch(err){}});
-</script></body></html>
+</script><script defer src="/shared-nav-icons.js"></script></body></html>
