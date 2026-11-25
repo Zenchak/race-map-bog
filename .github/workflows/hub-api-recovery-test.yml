@@ -1,0 +1,26 @@
+name: Test local Synology Hub API recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hub-api-recovery-test.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synology-hub-api-recovery-test
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'RUN_LOCAL_API_RECOVERY_TEST_2026_11_25'
+    runs-on: [self-hosted, linux, x64, synology]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guarded local watchdog installation and intentional stop/recovery test
+        shell: bash
+        run: bash scripts/hub-api-recovery-test.sh
