@@ -1,0 +1,32 @@
+name: Keep Zenchak Hub API online
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hub-api-watchdog.yml'
+      - 'scripts/hub-api-watchdog.sh'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zenchak-hub-api-watchdog
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Check and recover the main Hub API on Synology
+    runs-on: [self-hosted, linux, x64, synology]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate watchdog shell syntax
+        shell: bash
+        run: bash -n scripts/hub-api-watchdog.sh
+      - name: Check Hub and recover API only if needed
+        shell: bash
+        run: bash scripts/hub-api-watchdog.sh
